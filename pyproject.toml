@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dual-arm-pose-teleop"
+version = "0.1.0"
+description = "Robot-profile-driven waist/elbow/controller dual-arm teleoperation"
+requires-python = ">=3.10"
+dependencies = ["mujoco>=3.3.1", "mink>=0.0.10", "numpy>=1.24", "scipy>=1.14", "redis>=5"]
+
+[project.optional-dependencies]
+urdf-import = ["trimesh>=4", "pycollada>=0.8"]
+
+[tool.setuptools.packages.find]
+where = ["src"]

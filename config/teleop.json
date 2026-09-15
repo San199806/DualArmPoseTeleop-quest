@@ -1,0 +1,10 @@
+{
+  "robot": "baxter",
+  "simulation": true,
+  "mapping_mode": "cooperative_wrist",
+  "redis_host": "localhost",
+  "human_upper_arm_length_m": 0.3,
+  "human_forearm_length_m": 0.26,
+  "max_joint_velocity_rad_s": 1.5,
+  "collision_enabled": true
+}

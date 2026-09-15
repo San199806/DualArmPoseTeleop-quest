@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+
+# Crash dumps
+core
+core.*
+*.dmp
+
+# Editors
+.vscode/
+.idea/

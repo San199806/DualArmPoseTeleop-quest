@@ -1,0 +1,30 @@
+{
+  "repository": "https://github.com/RethinkRobotics/baxter_common",
+  "commit": "6c4b0f375fe4e356a3b12df26ef7c0d5e58df86e",
+  "source_urdf": "source/baxter_description/urdf/baxter.urdf",
+  "source_sha256": "ab936bfb412f9d94e54563107078d6862349975ee8235e5590f235b3664e6d51",
+  "nq": 15,
+  "joint_order": [
+    "head_pan",
+    "right_s0",
+    "right_s1",
+    "right_e0",
+    "right_e1",
+    "right_w0",
+    "right_w1",
+    "right_w2",
+    "left_s0",
+    "left_s1",
+    "left_e0",
+    "left_e1",
+    "left_w0",
+    "left_w1",
+    "left_w2"
+  ],
+  "coordinate_frame": "URDF: +X forward, +Y left, +Z up",
+  "conversion": "Official URDF link/joint/inertial/collision transforms retained; COLLADA transformed to OBJ; visual group 2, collision group 3.",
+  "collision_semantics_repository": "https://github.com/moveit/moveit_robots",
+  "collision_semantics_commit": "79c488b4afa548e19256f7adfee4fe1e7801f91f",
+  "collision_semantics_sha256": "0af82c1ac92048d0b74e91cecd8b792cbd01d63f6e9f86aa37a5368065601ed9",
+  "assembly_exclusions": 71
+}
