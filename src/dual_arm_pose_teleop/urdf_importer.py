@@ -285,7 +285,13 @@ def convert_urdf(urdf_path, destination, robot_name, *, package_roots=(),
         ET.SubElement(parent, "geom", attrs)
 
     def add_link(link_name, parent, incoming=None):
-        body = ET.SubElement(parent, "body", name=link_name)
+        body_name = link_name
+        if link_name == "world":
+            body_name = "world_link"
+            if body_name in links:
+                raise ValueError("URDF link 'world' conflicts with MuJoCo, and 'world_link' is already used")
+            warnings.append("URDF link 'world' was renamed to 'world_link' because MuJoCo reserves that body name")
+        body = ET.SubElement(parent, "body", name=body_name)
         if incoming is not None:
             xyz, quat = _origin(incoming)
             body.set("pos", _numbers(xyz))
@@ -324,18 +330,25 @@ def convert_urdf(urdf_path, destination, robot_name, *, package_roots=(),
             if mass_node is None or inertia is None:
                 raise ValueError(f"Link {link_name} has an incomplete inertial element")
             mass = float(mass_node.get("value", "nan"))
+            fixed_frame = incoming is None or incoming.get("type") == "fixed"
             if not math.isfinite(mass) or mass <= 0:
-                raise ValueError(f"Link {link_name} mass must be positive")
-            xyz, quat = _origin(inertial)
-            values = [float(inertia.get(key, "nan")) for key in ("ixx", "ixy", "ixz", "iyy", "iyz", "izz")]
-            if not np.isfinite(values).all():
-                raise ValueError(f"Link {link_name} inertia tensor is incomplete")
-            xx, xy, xz, yy, yz, zz = values
-            tensor = np.array([[xx, xy, xz], [xy, yy, yz], [xz, yz, zz]])
-            rotation = _rotation_matrix(quat)
-            tensor = rotation@tensor@rotation.T
-            ET.SubElement(body, "inertial", pos=_numbers(xyz), mass=f"{mass:.12g}",
-                          fullinertia=_numbers(tensor[[0, 1, 2, 0, 0, 1], [0, 1, 2, 1, 2, 2]]))
+                # SolidWorks flange frames are often exported with a zero inertial.
+                if fixed_frame and mass == 0:
+                    warnings.append(
+                        f"Link {link_name} is fixed with zero mass; its inertial element was omitted")
+                else:
+                    raise ValueError(f"Link {link_name} mass must be positive")
+            else:
+                xyz, quat = _origin(inertial)
+                values = [float(inertia.get(key, "nan")) for key in ("ixx", "ixy", "ixz", "iyy", "iyz", "izz")]
+                if not np.isfinite(values).all():
+                    raise ValueError(f"Link {link_name} inertia tensor is incomplete")
+                xx, xy, xz, yy, yz, zz = values
+                tensor = np.array([[xx, xy, xz], [xy, yy, yz], [xz, yz, zz]])
+                rotation = _rotation_matrix(quat)
+                tensor = rotation@tensor@rotation.T
+                ET.SubElement(body, "inertial", pos=_numbers(xyz), mass=f"{mass:.12g}",
+                              fullinertia=_numbers(tensor[[0, 1, 2, 0, 0, 1], [0, 1, 2, 1, 2, 2]]))
         elif incoming is not None and incoming.get("type") != "fixed":
             raise ValueError(f"Movable link {link_name!r} has no inertial data")
         for kind in ("visual", "collision"):

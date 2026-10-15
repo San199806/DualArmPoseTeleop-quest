@@ -173,6 +173,29 @@ def generate_l_pose(model, qpos, config, forward_axis="+y", collision_check=None
     return mirrored
 
 
+def _mirror_joint_signs(model, data, neutral, indices, source_side, target_side,
+                        center, normal, wrist_ids):
+    """Sign per joint so the target arm tracks the reflected source arm.
+
+    Copied angles and a single global negation are not enough when the two
+    URDF mounts flip only some joint axes. Probe each joint from the neutral
+    pose and keep the sign that lands the wrist on its reflected target.
+    """
+    signs = np.ones(len(indices[source_side]))
+    epsilon = 0.2
+    for index in range(len(signs)):
+        scored = []
+        for sign in (1.0, -1.0):
+            data.qpos[:] = neutral
+            data.qpos[indices[source_side][index]] = neutral[indices[source_side][index]]+epsilon
+            data.qpos[indices[target_side][index]] = neutral[indices[target_side][index]]+sign*epsilon
+            mujoco.mj_forward(model, data)
+            reflected = mirror_position(data.xpos[wrist_ids[source_side]], center, normal)
+            scored.append((float(np.linalg.norm(data.xpos[wrist_ids[target_side]]-reflected)), sign))
+        signs[index] = min(scored)[1]
+    return signs
+
+
 def mirror_orientation(rotation, source_reference, target_reference, normal):
     # Reflection itself has determinant -1. Reflect the rotation increment
     # on BOTH sides to retain a proper rotation, then apply the opposite
@@ -193,8 +216,8 @@ def symmetrize_pose(model, qpos, config, source_side, position_tolerance_m=0.005
     indices = {}
     for side in ("left", "right"):
         joints[side] = [model.joint(name).id for name in config["arms"][side]["joint_names"]]
-        if not joints[side] or any(model.jnt_type[j] not in (
-                mujoco.mjtJoint.mjJNT_HINGE, mujoco.mjtJoint.mjJNT_SLIDE) for j in joints[side]):
+        if not joints[side] or any(int(model.jnt_type[j]) not in (
+                int(mujoco.mjtJoint.mjJNT_HINGE), int(mujoco.mjtJoint.mjJNT_SLIDE)) for j in joints[side]):
             raise ValueError("Symmetry requires configured scalar arm joints")
         indices[side] = [int(model.jnt_qposadr[j]) for j in joints[side]]
     if set(indices["left"]) & set(indices["right"]):
@@ -254,6 +277,11 @@ def symmetrize_pose(model, qpos, config, source_side, position_tolerance_m=0.005
     seeds = [original[moving], neutral[moving]]
     if len(indices[source_side]) == len(moving):
         source = original[indices[source_side]]
+        signs = _mirror_joint_signs(
+            model, data, neutral, indices, source_side, target_side, center, normal,
+            {side: bodies[side]["wrist"] for side in ("left", "right")})
+        signed = neutral[moving]+signs*(source-neutral[indices[source_side]])
+        seeds.insert(0, signed)
         seeds.extend([source, -source])
     rng = np.random.default_rng(0)
     seeds.extend(np.clip(original[moving]+rng.normal(0,.5,len(moving)),low,high) for _ in range(2))

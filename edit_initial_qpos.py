@@ -122,14 +122,14 @@ class InitialQposEditor:
             name = mujoco.mj_id2name(
                 self.model, mujoco.mjtObj.mjOBJ_JOINT, joint_id
             )
-            joint_type = self.model.jnt_type[joint_id]
+            joint_type = int(self.model.jnt_type[joint_id])
             if joint_type not in (
-                mujoco.mjtJoint.mjJNT_HINGE,
-                mujoco.mjtJoint.mjJNT_SLIDE,
+                int(mujoco.mjtJoint.mjJNT_HINGE),
+                int(mujoco.mjtJoint.mjJNT_SLIDE),
             ):
                 continue
             qpos_index = int(self.model.jnt_qposadr[joint_id])
-            is_hinge = joint_type == mujoco.mjtJoint.mjJNT_HINGE
+            is_hinge = joint_type == int(mujoco.mjtJoint.mjJNT_HINGE)
             scale_factor = 180.0 / np.pi if is_hinge else 1.0
             current = float(self.data.qpos[qpos_index] * scale_factor)
             low, high = self._display_range(joint_id, current, scale_factor, is_hinge)
@@ -354,7 +354,7 @@ class InitialQposEditor:
             if not np.all(np.isfinite(candidate)):
                 raise ValueError("Joint values must be finite")
             for joint in range(self.model.njnt):
-                if self.model.jnt_type[joint] not in (mujoco.mjtJoint.mjJNT_HINGE, mujoco.mjtJoint.mjJNT_SLIDE):
+                if int(self.model.jnt_type[joint]) not in (int(mujoco.mjtJoint.mjJNT_HINGE), int(mujoco.mjtJoint.mjJNT_SLIDE)):
                     continue
                 if self.model.jnt_limited[joint]:
                     value = candidate[self.model.jnt_qposadr[joint]]

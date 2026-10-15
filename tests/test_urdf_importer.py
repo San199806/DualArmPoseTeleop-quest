@@ -71,6 +71,32 @@ class UrdfImporterTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Mimic"):
                 convert_urdf(source, root/"output", "bad")
 
+    def test_renames_urdf_world_link(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root/"world.urdf"
+            source.write_text(f'''<robot name="world"><link name="world"/>
+              <link name="base">{INERTIAL}</link>
+              <joint name="world_to_base" type="fixed"><parent link="world"/><child link="base"/></joint></robot>''',
+                              encoding="utf-8")
+            imported = convert_urdf(source, root/"output", "world")
+            model = mujoco.MjModel.from_xml_path(str(imported.xml_path))
+            self.assertGreaterEqual(model.body("world_link").id, 0)
+            self.assertGreaterEqual(model.body("base").id, 0)
+
+    def test_omits_zero_mass_fixed_frame(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            source = root/"frame.urdf"
+            source.write_text(f'''<robot name="frame"><link name="base">{INERTIAL}</link>
+              <link name="flange"><inertial><mass value="0"/><inertia ixx="0" ixy="0" ixz="0" iyy="0" iyz="0" izz="0"/></inertial></link>
+              <joint name="flange_joint" type="fixed"><parent link="base"/><child link="flange"/></joint></robot>''',
+                              encoding="utf-8")
+            imported = convert_urdf(source, root/"output", "frame")
+            model = mujoco.MjModel.from_xml_path(str(imported.xml_path))
+            self.assertGreaterEqual(model.body("flange").id, 0)
+            self.assertTrue(any("flange" in warning and "zero mass" in warning for warning in imported.warnings))
+
     def test_rejects_missing_inertia_on_movable_link(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

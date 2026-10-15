@@ -13,7 +13,9 @@ from .model_loader import load_robot_model
 
 
 SIDES = ("left", "right")
-SCALAR_JOINTS = (mujoco.mjtJoint.mjJNT_HINGE, mujoco.mjtJoint.mjJNT_SLIDE)
+# Compare as ints. NumPy joint types and MuJoCo enums compare with ==, but
+# `in` rejects the NumPy bool that equality returns.
+SCALAR_JOINTS = (int(mujoco.mjtJoint.mjJNT_HINGE), int(mujoco.mjtJoint.mjJNT_SLIDE))
 
 
 @dataclass
@@ -63,7 +65,7 @@ def _resolve_joints(model, names, side):
     else:
         candidates = []
         for joint in range(model.njnt):
-            if model.jnt_type[joint] not in SCALAR_JOINTS:
+            if int(model.jnt_type[joint]) not in SCALAR_JOINTS:
                 continue
             body = int(model.jnt_bodyid[joint])
             if _side(_joint_name(model, joint)) == side or _side(model.body(body).name or "") == side:
@@ -87,7 +89,7 @@ def _resolve_joints(model, names, side):
         raise ValueError(f"{side} arm needs at least three scalar joints")
     if len(result) != len(set(result)):
         raise ValueError(f"Duplicate joint in {side} arm")
-    if any(model.jnt_type[joint] not in SCALAR_JOINTS for joint in result):
+    if any(int(model.jnt_type[joint]) not in SCALAR_JOINTS for joint in result):
         raise ValueError(f"{side} arm contains a non-scalar joint")
     depths = _depths(model)
     if not names:

@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+import time
 
 import numpy as np
 from scipy.spatial.transform import Rotation
@@ -79,7 +80,18 @@ class PoseArmMapper:
         self.filtered_wrist_positions = {}
         self.body_alignment = None
         self.common_scale = None
+        self.skeleton_segments = False
+        self.calibration_wrist_vectors = {}
+        self.calibration_targets = None
+        self.calibration_yaw = None
+        self.calibration_pitch = None
+        self.at_calibration_pose = False
         self.last_debug_metrics = {}
+        self.accepted_sensor = None
+        self.previous_raw_sensor = None
+        self.sensor_stable_count = {"left": 0, "right": 0}
+        self.sensor_slew_time = 0.0
+        self.sensor_glitch = None
 
     @property
     def calibrated(self):
@@ -94,7 +106,46 @@ class PoseArmMapper:
         self.filtered_wrist_positions.clear()
         self.body_alignment = None
         self.common_scale = None
+        self.skeleton_segments = False
+        self.calibration_wrist_vectors = {}
+        self.calibration_targets = None
+        self.calibration_yaw = None
+        self.calibration_pitch = None
+        self.at_calibration_pose = False
         self.last_debug_metrics = {}
+        self.accepted_sensor = None
+        self.previous_raw_sensor = None
+        self.sensor_stable_count = {"left": 0, "right": 0}
+        self.sensor_slew_time = 0.0
+        self.sensor_glitch = None
+
+    def _adopt_skeleton_segments(self, frame):
+        """Use the VR shoulder, elbow and wrist bones as the human arm lengths."""
+        self.skeleton_segments = False
+        shoulders = {}
+        for side in ("left", "right"):
+            shoulder = getattr(frame, f"{side}_shoulder", None)
+            if shoulder is None:
+                return
+            shoulders[side] = shoulder.position
+            elbow = getattr(frame, f"{side}_elbow").position
+            wrist = self._controller_wrist_world(frame, side)
+            upper = float(np.linalg.norm(elbow-shoulders[side]))
+            forearm = float(np.linalg.norm(wrist-elbow))
+            if upper < 0.05 or forearm < 0.05:
+                return
+            self.human_upper_lengths[side] = upper
+            self.human_forearm_lengths[side] = forearm
+        lateral = shoulders["left"]-shoulders["right"]
+        lateral[2] = 0.0
+        width = float(np.linalg.norm(lateral))
+        if width > 0.05:
+            self.human_shoulder_width = width
+        # A straightened human arm maps onto the robot's full link length.
+        # The default 97% reach cap would reject that pose and keep the last bend.
+        self.maximum_reach_ratio = 1.0
+        self.reach_margin = 0.0
+        self.skeleton_segments = True
 
     @staticmethod
     def _mean_pose(poses):
@@ -109,6 +160,12 @@ class PoseArmMapper:
         """Average a short, stationary calibration window."""
         if not frames:
             raise ValueError("Cannot average an empty calibration window")
+        def mean_optional(name):
+            poses = [getattr(frame, name) for frame in frames]
+            if any(pose is None for pose in poses):
+                return None
+            return cls._mean_pose(poses)
+
         return SensorFrame(
             head=cls._mean_pose([frame.head for frame in frames]),
             waist=cls._mean_pose([frame.waist for frame in frames]),
@@ -116,6 +173,10 @@ class PoseArmMapper:
             right_elbow=cls._mean_pose([frame.right_elbow for frame in frames]),
             left_controller=cls._mean_pose([frame.left_controller for frame in frames]),
             right_controller=cls._mean_pose([frame.right_controller for frame in frames]),
+            left_shoulder=mean_optional("left_shoulder"),
+            right_shoulder=mean_optional("right_shoulder"),
+            hips=mean_optional("hips"),
+            chest=mean_optional("chest"),
         )
 
     def calibration_motion_deg(self, frames):
@@ -189,6 +250,11 @@ class PoseArmMapper:
 
     def _calibration_observation(self, frame, side):
         """Estimate one raw shoulder before bilateral symmetrization."""
+        if self.skeleton_segments and getattr(frame, f"{side}_shoulder", None) is not None:
+            upper, _, controller_rotation, shoulder_world, _ = self._human_arm(
+                frame, side, frame.head.position
+            )
+            return upper, controller_rotation, shoulder_world
         elbow_sensor = getattr(frame, f"{side}_elbow")
         upper_direction, controller_rotation_local = self._orientation_features(
             frame, side
@@ -236,7 +302,29 @@ class PoseArmMapper:
         )
 
     def _human_arm(self, frame, side, head_position, wrist_world=None):
-        """Reconstruct the elbow without using its runtime tracked position."""
+        """Reconstruct the elbow without using its runtime tracked position.
+
+        A VR skeleton supplies the shoulder bone, so its upper-arm and forearm
+        directions come from the measured segments instead.
+        """
+        if self.skeleton_segments and getattr(frame, f"{side}_shoulder", None) is not None:
+            elbow_pose = getattr(frame, f"{side}_elbow")
+            controller = getattr(frame, f"{side}_controller")
+            if wrist_world is None:
+                wrist_world = self._controller_wrist_world(frame, side)
+            shoulder_world = getattr(frame, f"{side}_shoulder").position
+            waist_inv = frame.waist.rotation.inv()
+            upper_direction = normalize(waist_inv.apply(elbow_pose.position-shoulder_world))
+            forearm_direction = normalize(
+                waist_inv.apply(wrist_world-elbow_pose.position), upper_direction
+            )
+            return (
+                upper_direction,
+                forearm_direction,
+                waist_inv * controller.rotation,
+                shoulder_world,
+                wrist_world,
+            )
         calibration = self.arms[side]
         upper_direction, controller_rotation_local = self._orientation_features(
             frame, side
@@ -293,6 +381,7 @@ class PoseArmMapper:
         )
 
     def calibrate(self, frame, robot_poses):
+        self._adopt_skeleton_segments(frame)
         self.base_pose = robot_poses["base"]
         self.filtered_head_position = frame.head.position.copy()
         self.filtered_wrist_positions = {
@@ -354,10 +443,21 @@ class PoseArmMapper:
                 + self.human_upper_lengths[side] * human_upper_world
             )
             human_wrist_world = self._controller_wrist_world(frame, side)
-            human_forearm = normalize(
-                waist_inv.apply(human_wrist_world - reconstructed_elbow_world),
-                human_upper,
-            )
+            vector_shoulder = human_shoulder_world
+            vector_wrist = human_wrist_world
+            # Runtime mapping reads the skeleton shoulder. The offset has to use
+            # that same point, or the calibrated L pose maps tens of centimetres away.
+            if self.skeleton_segments and getattr(frame, f"{side}_shoulder", None) is not None:
+                _, _, _, vector_shoulder, vector_wrist = self._human_arm(
+                    frame, side, frame.head.position
+                )
+            if self.skeleton_segments:
+                human_forearm = self._human_arm(frame, side, frame.head.position)[1]
+            else:
+                human_forearm = normalize(
+                    waist_inv.apply(human_wrist_world - reconstructed_elbow_world),
+                    human_upper,
+                )
             head_to_shoulder_body = waist_inv.apply(
                 human_shoulder_world - frame.head.position
             )
@@ -372,12 +472,19 @@ class PoseArmMapper:
             attitude_alignment = self.body_alignment if self.mode == "cooperative_wrist" else alignment
             controller_in_robot = attitude_alignment * controller_rotation
             controller_to_wrist = controller_in_robot.inv() * wrist.rotation
-            human_wrist_vector_local = waist_inv.apply(
-                human_wrist_world - human_shoulder_world
-            )
-            predicted_wrist = shoulder.position + self.common_scale * self.body_alignment.apply(
-                human_wrist_vector_local
-            )
+            if self.skeleton_segments and self.mode == "segment_direction":
+                predicted_wrist = (
+                    shoulder.position
+                    + float(np.linalg.norm(robot_upper)) * normalize(alignment.apply(human_upper))
+                    + float(np.linalg.norm(robot_forearm)) * normalize(alignment.apply(human_forearm))
+                )
+            else:
+                human_wrist_vector_local = waist_inv.apply(
+                    vector_wrist - vector_shoulder
+                )
+                predicted_wrist = shoulder.position + self.common_scale * self.body_alignment.apply(
+                    human_wrist_vector_local
+                )
             wrist_position_offset = wrist.position - predicted_wrist
             elbow_direction = elbow.position - 0.5 * (shoulder.position + wrist.position)
             self.arms[side] = ArmCalibration(
@@ -401,6 +508,48 @@ class PoseArmMapper:
             side: ArmTarget(robot_poses[f"{side}_elbow"], robot_poses[f"{side}_wrist"])
             for side in ("left", "right")
         })
+        self.calibration_targets = self.last_targets
+        self.calibration_wrist_vectors = {}
+        for side in ("left", "right"):
+            _, _, _, shoulder, wrist = self._human_arm(frame, side, frame.head.position)
+            self.calibration_wrist_vectors[side] = frame.waist.rotation.inv().apply(
+                wrist - shoulder
+            )
+        self.at_calibration_pose = True
+        self.accepted_sensor = frame
+        self.previous_raw_sensor = frame
+        self.sensor_stable_count = {"left": 4, "right": 4}
+        self.sensor_slew_time = time.monotonic()
+        self.sensor_glitch = None
+        self.calibration_yaw = self.yaw_of(frame.waist.rotation)
+        self.calibration_pitch = self._frame_torso_pitch(frame)
+
+    @staticmethod
+    def yaw_of(rotation):
+        forward = rotation.apply(np.array([1.0, 0.0, 0.0]))
+        return float(np.arctan2(forward[1], forward[0]))
+
+    @staticmethod
+    def torso_pitch(hips, chest, yaw):
+        """Positive when the chest leans forward of the hips, yaw removed."""
+        delta = np.asarray(chest, dtype=float) - np.asarray(hips, dtype=float)
+        local = Rotation.from_euler("z", -yaw).apply(delta)
+        return float(np.arctan2(local[0], local[2]))
+
+    @classmethod
+    def _frame_torso_pitch(cls, frame):
+        if frame.hips is None or frame.chest is None:
+            return None
+        return cls.torso_pitch(
+            frame.hips.position, frame.chest.position, cls.yaw_of(frame.waist.rotation)
+        )
+
+    @staticmethod
+    def torso_joint_target(current_yaw, calibration_yaw, initial, lower, upper, current_joint, max_step):
+        """Waist joint for the change in body yaw since calibration, rate-limited."""
+        delta = (current_yaw - calibration_yaw + np.pi) % (2.0 * np.pi) - np.pi
+        desired = float(np.clip(initial + delta, lower, upper))
+        return float(np.clip(desired, current_joint - max_step, current_joint + max_step))
 
     def export_calibration(self):
         if not self.calibrated:
@@ -491,9 +640,16 @@ class PoseArmMapper:
         for side, wrist in wrists.items():
             arm = self.arms[side]
             distance = np.linalg.norm(wrist-arm.shoulder)
-            minimum = abs(arm.upper_length-arm.forearm_length)+self.reach_margin
-            maximum = min((arm.upper_length+arm.forearm_length)*self.maximum_reach_ratio,
-                          arm.upper_length+arm.forearm_length-self.reach_margin)
+            span = arm.upper_length+arm.forearm_length
+            if self.skeleton_segments:
+                minimum = abs(arm.upper_length-arm.forearm_length)
+                # A straightened arm can sit a few millimetres past the robot's
+                # full length. Clipping later keeps that direction; rejecting
+                # here would freeze the previous pose.
+                maximum = span*2.0
+            else:
+                minimum = abs(arm.upper_length-arm.forearm_length)+self.reach_margin
+                maximum = min(span*self.maximum_reach_ratio, span-self.reach_margin)
             if not np.isfinite(distance) or not minimum-1e-9 <= distance <= maximum+1e-9:
                 return False
         return True
@@ -576,12 +732,8 @@ class PoseArmMapper:
             observations[side] = values
             upper_h, _, _, human_shoulder_world, human_wrist_world = values
             arm = self.arms[side]
-            raw_elbows[side] = (
-                arm.shoulder
-                + arm.upper_length * normalize(
-                    arm.direction_alignment.apply(upper_h)
-                )
-            )
+            upper_r = normalize(arm.direction_alignment.apply(upper_h))
+            raw_elbows[side] = arm.shoulder + arm.upper_length * upper_r
             human_vector = frame.waist.rotation.inv().apply(
                 human_wrist_world - human_shoulder_world
             )
@@ -606,14 +758,16 @@ class PoseArmMapper:
         projected_wrists = {}
         for side in ("left", "right"):
             arm = self.arms[side]
+            reach_ratio = 1.0 if self.skeleton_segments else self.maximum_reach_ratio
+            reach_margin = 0.0 if self.skeleton_segments else self.reach_margin
             elbow, wrist, elbow_direction = project_two_link(
                 arm.shoulder,
                 raw_elbows[side],
                 coupled_wrists[side],
                 arm.upper_length,
                 arm.forearm_length,
-                self.maximum_reach_ratio,
-                self.reach_margin,
+                reach_ratio,
+                reach_margin,
                 arm.last_elbow_direction,
             )
             arm.last_elbow_direction = elbow_direction
@@ -672,6 +826,247 @@ class PoseArmMapper:
         self.last_targets = DualArmTargets(left=targets["left"], right=targets["right"])
         return self.last_targets
 
+    def _mark_calibration_pose(self, frame, wrist_positions):
+        """True when both hands are back at the calibrated L pose."""
+        if len(self.calibration_wrist_vectors) != 2:
+            self.at_calibration_pose = False
+            return
+        for side in ("left", "right"):
+            _, _, _, shoulder, wrist = self._human_arm(
+                frame, side, frame.head.position, wrist_positions[side]
+            )
+            vector = frame.waist.rotation.inv().apply(wrist - shoulder)
+            if np.linalg.norm(vector - self.calibration_wrist_vectors[side]) > 0.01:
+                self.at_calibration_pose = False
+                return
+        self.at_calibration_pose = True
+
+    def _sensor_anchor(self, frame, side):
+        shoulder = getattr(frame, f"{side}_shoulder", None)
+        if shoulder is not None:
+            return np.asarray(shoulder.position, dtype=np.float64)
+        return np.asarray(frame.head.position, dtype=np.float64)
+
+    def _local_point(self, frame, side, position):
+        return frame.waist.rotation.inv().apply(
+            np.asarray(position, dtype=np.float64) - self._sensor_anchor(frame, side)
+        )
+
+    def _local_rotation(self, frame, rotation):
+        return frame.waist.rotation.inv() * rotation
+
+    def _reexpress_point(self, source, dest, side, position):
+        return self._sensor_anchor(dest, side) + dest.waist.rotation.apply(
+            self._local_point(source, side, position)
+        )
+
+    def _reexpress_rotation(self, source, dest, rotation):
+        return dest.waist.rotation * self._local_rotation(source, rotation)
+
+    def _arm_deltas(self, current, previous, side):
+        current_controller = getattr(current, f"{side}_controller")
+        previous_controller = getattr(previous, f"{side}_controller")
+        position_delta = float(np.linalg.norm(
+            self._local_point(current, side, current_controller.position)
+            - self._local_point(previous, side, previous_controller.position)
+        ))
+        rotation_delta = float(np.degrees((
+            self._local_rotation(previous, previous_controller.rotation).inv()
+            * self._local_rotation(current, current_controller.rotation)
+        ).magnitude()))
+        elbow_delta = float(np.linalg.norm(
+            self._local_point(current, side, getattr(current, f"{side}_elbow").position)
+            - self._local_point(previous, side, getattr(previous, f"{side}_elbow").position)
+        ))
+        return position_delta, rotation_delta, elbow_delta
+
+    @staticmethod
+    def _slew_point(accepted, target, budget):
+        delta = target - accepted
+        distance = float(np.linalg.norm(delta))
+        if distance <= budget or distance < 1e-9:
+            return target, False
+        return accepted + delta * (budget / distance), True
+
+    @staticmethod
+    def _slew_rotation(accepted, target, budget_deg):
+        delta = accepted.inv() * target
+        angle = float(np.degrees(delta.magnitude()))
+        if angle <= budget_deg or angle < 1e-6:
+            return target, False
+        rotvec = delta.as_rotvec()
+        rotvec = rotvec * (np.radians(budget_deg) / np.linalg.norm(rotvec))
+        return accepted * Rotation.from_rotvec(rotvec), True
+
+    def _hold_false_waist_yaw(self, frame, accepted):
+        """Keep the last shoulder yaw when it snaps but the hands stay put.
+
+        A one-packet shoulder-line correction rotates both arm targets even
+        though the controllers did not move. A real turn moves the hands.
+        """
+        yaw_delta = self.yaw_of(frame.waist.rotation) - self.yaw_of(accepted.waist.rotation)
+        yaw_delta = (yaw_delta + np.pi) % (2.0 * np.pi) - np.pi
+        yaw_deg = abs(float(np.degrees(yaw_delta)))
+        if yaw_deg <= 5.0:
+            return frame, None
+        hand_motion = max(
+            float(np.linalg.norm(
+                frame.left_controller.position - accepted.left_controller.position
+            )),
+            float(np.linalg.norm(
+                frame.right_controller.position - accepted.right_controller.position
+            )),
+        )
+        if hand_motion >= 0.04:
+            return frame, None
+        held = replace(
+            frame,
+            waist=Pose(
+                np.asarray(frame.waist.position, dtype=np.float64),
+                accepted.waist.rotation,
+            ),
+        )
+        return held, f"waist yaw {yaw_deg:.0f} deg"
+
+    def stabilize_sensor(self, frame):
+        """Drop a one-packet arm glitch, then catch up once the pose settles.
+
+        Motion is measured relative to the shoulder in the waist frame, so a
+        step of the whole body still passes. A controller that teleports, a
+        wrist that twists far in one packet, or an elbow that jumps while the
+        hand stays still is ignored. Once the new reading stays put, the
+        accepted pose moves toward it at the same per-packet limit.
+        """
+        previous_raw = self.previous_raw_sensor
+        accepted = self.accepted_sensor
+        if previous_raw is None or accepted is None:
+            self.accepted_sensor = frame
+            self.previous_raw_sensor = frame
+            self.sensor_stable_count = {"left": 4, "right": 4}
+            self.sensor_slew_time = time.monotonic()
+            self.sensor_glitch = None
+            return frame
+        now = time.monotonic()
+        elapsed = now - self.sensor_slew_time
+        if elapsed < 0.001:
+            scale = 0.0
+        else:
+            scale = min(elapsed, 0.04) * 36.0
+            self.sensor_slew_time = now
+        position_budget = 0.15 * scale
+        rotation_budget = 40.0 * scale
+        elbow_budget = 0.08 * scale
+        frame, yaw_reason = self._hold_false_waist_yaw(frame, accepted)
+        replaces = {}
+        reasons = []
+        for side in ("left", "right"):
+            position_delta, rotation_delta, elbow_delta = self._arm_deltas(
+                frame, previous_raw, side
+            )
+            position_jump = position_delta > 0.15
+            rotation_jump = rotation_delta > 40.0
+            elbow_jump = elbow_delta > 0.08 and position_delta < 0.06
+            if position_jump or rotation_jump or elbow_jump:
+                self.sensor_stable_count[side] = 0
+                current_controller = getattr(frame, f"{side}_controller")
+                current_elbow = getattr(frame, f"{side}_elbow")
+                accepted_controller = getattr(accepted, f"{side}_controller")
+                accepted_elbow = getattr(accepted, f"{side}_elbow")
+                hold_elbow = position_jump or elbow_jump
+                if position_jump or rotation_jump:
+                    replaces[f"{side}_controller"] = Pose(
+                        self._reexpress_point(
+                            accepted, frame, side, accepted_controller.position
+                        ) if position_jump else current_controller.position,
+                        self._reexpress_rotation(
+                            accepted, frame, accepted_controller.rotation
+                        ) if rotation_jump else current_controller.rotation,
+                    )
+                if hold_elbow:
+                    replaces[f"{side}_elbow"] = Pose(
+                        self._reexpress_point(accepted, frame, side, accepted_elbow.position),
+                        self._reexpress_rotation(accepted, frame, accepted_elbow.rotation),
+                    )
+                if position_jump:
+                    reasons.append(f"{side} controller position {position_delta:.2f} m")
+                if rotation_jump:
+                    reasons.append(f"{side} controller rotation {rotation_delta:.0f} deg")
+                if elbow_jump:
+                    reasons.append(f"{side} elbow {elbow_delta:.2f} m")
+                continue
+            self.sensor_stable_count[side] = self.sensor_stable_count.get(side, 0) + 1
+            if self.sensor_stable_count[side] < 4:
+                accepted_controller = getattr(accepted, f"{side}_controller")
+                accepted_elbow = getattr(accepted, f"{side}_elbow")
+                replaces[f"{side}_controller"] = Pose(
+                    self._reexpress_point(accepted, frame, side, accepted_controller.position),
+                    self._reexpress_rotation(accepted, frame, accepted_controller.rotation),
+                )
+                replaces[f"{side}_elbow"] = Pose(
+                    self._reexpress_point(accepted, frame, side, accepted_elbow.position),
+                    self._reexpress_rotation(accepted, frame, accepted_elbow.rotation),
+                )
+                continue
+            gap_position, gap_rotation, gap_elbow = self._arm_deltas(frame, accepted, side)
+            within_packet = (
+                gap_position <= 0.15
+                and gap_rotation <= 40.0
+                and not (gap_elbow > 0.08 and gap_position < 0.06)
+            )
+            if within_packet:
+                continue
+            accepted_controller = getattr(accepted, f"{side}_controller")
+            accepted_elbow = getattr(accepted, f"{side}_elbow")
+            current_controller = getattr(frame, f"{side}_controller")
+            current_elbow = getattr(frame, f"{side}_elbow")
+            position, position_limited = self._slew_point(
+                self._local_point(accepted, side, accepted_controller.position),
+                self._local_point(frame, side, current_controller.position),
+                position_budget,
+            )
+            rotation, rotation_limited = self._slew_rotation(
+                self._local_rotation(accepted, accepted_controller.rotation),
+                self._local_rotation(frame, current_controller.rotation),
+                rotation_budget,
+            )
+            elbow_position, elbow_limited = self._slew_point(
+                self._local_point(accepted, side, accepted_elbow.position),
+                self._local_point(frame, side, current_elbow.position),
+                elbow_budget,
+            )
+            elbow_rotation, elbow_rotation_limited = self._slew_rotation(
+                self._local_rotation(accepted, accepted_elbow.rotation),
+                self._local_rotation(frame, current_elbow.rotation),
+                rotation_budget,
+            )
+            if position_limited or rotation_limited:
+                replaces[f"{side}_controller"] = Pose(
+                    self._sensor_anchor(frame, side) + frame.waist.rotation.apply(position),
+                    frame.waist.rotation * rotation,
+                )
+            if elbow_limited or elbow_rotation_limited:
+                replaces[f"{side}_elbow"] = Pose(
+                    self._sensor_anchor(frame, side) + frame.waist.rotation.apply(elbow_position),
+                    frame.waist.rotation * elbow_rotation,
+                )
+            if position_limited:
+                reasons.append(f"{side} controller position {gap_position:.2f} m")
+            if rotation_limited:
+                reasons.append(f"{side} controller rotation {gap_rotation:.0f} deg")
+            if elbow_limited:
+                reasons.append(f"{side} elbow {gap_elbow:.2f} m")
+        self.previous_raw_sensor = frame
+        if not replaces:
+            self.accepted_sensor = frame
+            self.sensor_glitch = yaw_reason
+            return frame
+        if yaw_reason:
+            reasons.insert(0, yaw_reason)
+        cleaned = replace(frame, **replaces)
+        self.accepted_sensor = cleaned
+        self.sensor_glitch = ", ".join(reasons) if reasons else None
+        return cleaned
+
     def map(self, frame):
         if not self.calibrated:
             raise RuntimeError("PoseArmMapper must be calibrated before mapping")
@@ -682,6 +1077,11 @@ class PoseArmMapper:
             )
             for side in ("left", "right")
         }
+        self._mark_calibration_pose(frame, wrist_positions)
+        if self.at_calibration_pose and self.calibration_targets is not None:
+            self.last_debug_metrics = {"mapping_pair_held": 0.0}
+            self.last_targets = self.calibration_targets
+            return self.calibration_targets
         if self.mode == "cooperative_wrist":
             return self._map_cooperative(frame, head_position, wrist_positions)
         self.last_debug_metrics = {}

@@ -1,0 +1,16 @@
+{
+  "source_urdf": "/home/victor/wh/Lycus_ros/src/lycus_description/urdf/lycus.urdf",
+  "source_sha256": "022d3332cfa82e0f31f0f0f0cd16c950e7ab63b133a93474156c18fa3f243f46",
+  "links": 38,
+  "urdf_joints": 37,
+  "nq": 24,
+  "nv": 24,
+  "meshes": 31,
+  "floating_base": false,
+  "warnings": [
+    "URDF link 'world' was renamed to 'world_link' because MuJoCo reserves that body name",
+    "Link AR5-5_08L-W4C1C9-ZY2_flan_link is fixed with zero mass; its inertial element was omitted",
+    "Link AR5-5_08R-W4C1C9-ZY2_flan_link is fixed with zero mass; its inertial element was omitted",
+    "initial_qpos uses model qpos0; preview and save a suitable pose with edit_initial_qpos.py"
+  ]
+}

@@ -19,13 +19,16 @@ class RuntimeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             model_path = pathlib.Path(directory)/"fake.xml"
             model_path.write_text("<mujoco/>")
-            config = load_configuration(pathlib.Path(__file__).resolve().parents[1]/"robots"/"baxter.json").values
+            config = load_configuration(pathlib.Path(__file__).resolve().parents[1]/"robots"/"lycus.json").values
             config["model_xml"] = str(model_path)
             config["diagnostics"]["enabled"] = False
+            config.pop("waist_joint", None)
+            config.pop("pitch_joint", None)
             config_path = pathlib.Path(directory)/"profile.json"
             config_path.write_text(json.dumps(config))
             ik = Mock()
             ik.collision_blocked = None
+            ik.qpos_overrides = {}
             ik.collision.enabled = False
             ik.initial_qpos = np.zeros(1)
             ik.configuration.data.qpos = np.zeros(1)
@@ -39,6 +42,7 @@ class RuntimeTests(unittest.TestCase):
             ik.solve.side_effect = solve
             mapper = Mock()
             mapper.calibrated = True
+            mapper.at_calibration_pose = False
             mapper.last_debug_metrics = {}
             mapper.map.return_value = SimpleNamespace(
                 left=SimpleNamespace(wrist=SimpleNamespace(position=np.zeros(3))),
@@ -50,7 +54,7 @@ class RuntimeTests(unittest.TestCase):
                 "LeftController": {"key_one":False,"key_two":False},
                 "RightController": {"key_one":False,"key_two":False}})
             redis = Mock()
-            with patch("dual_arm_pose_teleop.app.XRobotInput", return_value=source), \
+            with patch("dual_arm_pose_teleop.app.SkeletonInput", return_value=source), \
                  patch("dual_arm_pose_teleop.app.DualArmIKSolver", return_value=ik), \
                  patch("dual_arm_pose_teleop.app.PoseArmMapper", return_value=mapper), \
                  patch("redis.Redis", return_value=redis):
@@ -72,13 +76,21 @@ class RuntimeTests(unittest.TestCase):
             redis.pipeline.return_value.set.reset_mock()
             ik.collision.enabled = True
             ik.collision.check_path.return_value = SimpleNamespace(
-                safe=False,distance_m=-.01,message='test colliding pair')
+                safe=False,distance_m=-.01,message='test colliding pair',allowed=False)
             app._step()
-            self.assertFalse(app.active)
+            self.assertTrue(app.active)
             np.testing.assert_array_equal(app.limiter.q,sent)
             np.testing.assert_array_equal(app.last_applied_qpos,sent)
             self.assertFalse(any(c.args[0] == 't_action' for c in redis.pipeline.return_value.set.call_args_list))
             redis.pipeline.return_value.set.assert_any_call(app.command_valid_key,0,px=app.command_ttl_ms)
+
+    def test_partial_wrist_progress_is_not_rejected(self):
+        app = TeleopApplication.__new__(TeleopApplication)
+        app.max_wrist_ik_error_m = 0.12
+        self.assertFalse(app._wrist_solution_rejected(0.20, 0.28))
+        self.assertFalse(app._wrist_solution_rejected(0.20, 0.19))
+        self.assertTrue(app._wrist_solution_rejected(0.20, 0.05))
+        self.assertFalse(app._wrist_solution_rejected(0.08, 0.02))
 
     def app(self):
         app = TeleopApplication.__new__(TeleopApplication)

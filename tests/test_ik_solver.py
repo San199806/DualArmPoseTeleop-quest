@@ -38,6 +38,10 @@ class IKSolverTests(unittest.TestCase):
             q = solver.solve(DualArmTargets(**targets))
             np.testing.assert_allclose(q[:7], initial[:7], atol=1e-9)
             self.assertGreater(np.linalg.norm(q[7:]), 1e-5)
+            solver.configuration.update(q=initial)
+            solver.max_solve_time_s = 1e-9
+            solver.solve(DualArmTargets(**targets))
+            self.assertEqual(solver.last_solve_iterations, 1)
             lock = solver.limits[-1]
             constraint = lock.compute_qp_inequalities(solver.configuration,.01)
             self.assertEqual(constraint.G.shape, (12,8))

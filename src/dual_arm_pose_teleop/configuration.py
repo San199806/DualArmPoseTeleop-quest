@@ -28,8 +28,33 @@ class LoadedConfiguration:
     sources: list
 
 
+def _strip_json_comments(text):
+    """Drop // and /* */ comments that sit outside JSON strings."""
+    out=[]; i=0; n=len(text); in_string=False; escape=False
+    while i<n:
+        ch=text[i]; nxt=text[i+1] if i+1<n else ''
+        if in_string:
+            out.append(ch)
+            if escape: escape=False
+            elif ch=='\\': escape=True
+            elif ch=='"': in_string=False
+            i+=1; continue
+        if ch=='"':
+            in_string=True; out.append(ch); i+=1; continue
+        if ch=='/' and nxt=='/':
+            i+=2
+            while i<n and text[i] not in '\r\n': i+=1
+            continue
+        if ch=='/' and nxt=='*':
+            end=text.find('*/', i+2)
+            if end<0: raise ValueError('Unclosed block comment')
+            i=end+2; continue
+        out.append(ch); i+=1
+    return ''.join(out)
+
+
 def _read(path):
-    value=json.loads(Path(path).read_text(encoding='utf-8'))
+    value=json.loads(_strip_json_comments(Path(path).read_text(encoding='utf-8')))
     if not isinstance(value,dict):raise ValueError(f'Configuration must be an object: {path}')
     return value
 
@@ -45,11 +70,11 @@ def _merge(base,override):
 
 
 def _validate(c):
-    for key in ('robot','model_xml','frames','arms','initial_qpos','trackers'):
+    for key in ('robot','model_xml','frames','arms','initial_qpos'):
         if key not in c:raise ValueError(f'Missing required configuration: {key}')
     if not isinstance(c['robot'],str) or not re.fullmatch(r'[A-Za-z0-9_-]+',c['robot']):
         raise ValueError('Invalid robot profile name')
-    for key in ('frames','arms','trackers'):
+    for key in ('frames','arms'):
         if not isinstance(c[key],dict) or not c[key]:raise ValueError(f'{key} must be a nonempty object')
     if c['mapping']['mode'] not in ('segment_direction','cooperative_wrist'):raise ValueError('Invalid mapping_mode')
     if not isinstance(c['runtime']['simulation'],bool) or not isinstance(c['ik']['collision']['enabled'],bool):
@@ -75,11 +100,6 @@ def _profile(path):
     defaults['runtime']['calibration_file']=f'calibration/{robot}_default.json'
     root=path.parent.parent
     sources=[str(Path(__file__).with_name('defaults.py')),str(path)]
-    if raw.get('schema_version')==1:
-        devices=root/'config'/'devices.json'
-        device_values=_read(devices)
-        if set(device_values)!={'trackers'}:raise ValueError('devices.json must contain only trackers')
-        defaults=_merge(defaults,device_values);sources.append(str(devices))
     return LoadedConfiguration(_merge(defaults,{k:v for k,v in raw.items() if k!='schema_version'}),root,path,sources)
 
 
@@ -96,7 +116,7 @@ def load_configuration(path,robot=None,_visited=()):
     else:
         unknown=set(raw)-set(DAILY_KEYS)-{'robot','advanced'}
         if unknown:raise ValueError('Unknown daily setting(s): '+', '.join(sorted(unknown)))
-        selected=robot if robot is not None else raw.get('robot','baxter')
+        selected=robot if robot is not None else raw.get('robot','lycus')
         if not isinstance(selected,str) or not re.fullmatch(r'[A-Za-z0-9_-]+',selected):raise ValueError('Invalid robot name')
         loaded=_profile(path.parent.parent/'robots'/f'{selected}.json')
         if loaded.values['robot']!=selected:raise ValueError('Robot filename and profile name disagree')

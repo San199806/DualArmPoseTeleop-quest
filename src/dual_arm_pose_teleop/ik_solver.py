@@ -1,3 +1,5 @@
+import time
+
 import mink
 import mujoco
 import numpy as np
@@ -53,7 +55,9 @@ class DualArmIKSolver:
         self.solver = ik_config["solver"]
         self.damping = float(ik_config["damping"])
         self.iterations = int(ik_config["iterations"])
+        self.max_solve_time_s = float(ik_config.get("max_solve_time_s", 0.0))
         self.solution_tolerance = float(ik_config.get("solution_tolerance", 1e-4))
+        self.last_solve_iterations = 0
         self.lock_non_arm_qpos = bool(ik_config.get("lock_non_arm_qpos", True))
         arm_index_set = set(all_indices)
         self.fixed_qpos_indices = np.asarray(
@@ -95,6 +99,7 @@ class DualArmIKSolver:
         self.limits = [mink.ConfigurationLimit(self.model)]
         self.collision = CollisionGuard(self.model, arms, ik_config.get("collision"))
         self.collision_blocked = None
+        self.qpos_overrides = {}
         if self.collision.enabled:
             self.limits.append(self.collision.make_limit())
             print(f"[Collision] enabled: {len(self.collision.pairs)} pairs, clearance={self.collision.minimum*1000:.1f} mm")
@@ -115,10 +120,10 @@ class DualArmIKSolver:
                 joint_id = self.model.joint(name).id
             except KeyError as error:
                 raise ValueError(f"Unknown {side} arm joint: {name}") from error
-            joint_type = self.model.jnt_type[joint_id]
+            joint_type = int(self.model.jnt_type[joint_id])
             scalar_types = (
-                mujoco.mjtJoint.mjJNT_SLIDE,
-                mujoco.mjtJoint.mjJNT_HINGE,
+                int(mujoco.mjtJoint.mjJNT_SLIDE),
+                int(mujoco.mjtJoint.mjJNT_HINGE),
             )
             if joint_type not in scalar_types:
                 raise ValueError(f"Arm joint {name} is not a scalar hinge/slide joint")
@@ -201,13 +206,23 @@ class DualArmIKSolver:
                     lower[index], upper[index] = -np.inf, np.inf
         return self.command_positions(lower), self.command_positions(upper)
 
+    def _apply_fixed_qpos(self):
+        qpos = self.configuration.data.qpos.copy()
+        changed = False
+        if self.lock_non_arm_qpos and self.fixed_qpos_indices.size:
+            qpos[self.fixed_qpos_indices] = self.initial_qpos[self.fixed_qpos_indices]
+            changed = True
+        for index, value in self.qpos_overrides.items():
+            qpos[index] = value
+            changed = True
+        if changed:
+            self.configuration.update(q=qpos)
+
     def solve(self, targets):
         self.collision_blocked = None
+        self._apply_fixed_qpos()
         start = self.configuration.data.qpos.copy()
-        report = self.collision.check(start)
-        if not report.safe:
-            self.collision_blocked = report.message
-            return start
+        progressed = False
         identity = Rotation.identity()
         self.tasks["left_elbow"].set_target(
             self._as_se3(Pose(targets.left.elbow.position, identity))
@@ -219,7 +234,20 @@ class DualArmIKSolver:
         self.tasks["right_wrist"].set_target(self._as_se3(targets.right.wrist))
         task_list = list(self.tasks.values())
         dt = self.model.opt.timestep
+        deadline = (
+            time.perf_counter() + self.max_solve_time_s
+            if self.max_solve_time_s > 0.0
+            else None
+        )
+        solved_iterations = 0
         for _ in range(self.iterations):
+            if (
+                solved_iterations
+                and deadline is not None
+                and time.perf_counter() >= deadline
+            ):
+                break
+            solved_iterations += 1
             previous = self.configuration.data.qpos.copy()
             try:
                 velocity = mink.solve_ik(
@@ -233,18 +261,16 @@ class DualArmIKSolver:
                 self.collision_blocked = f"Constrained IK failed: {error}"
                 break
             self.configuration.integrate_inplace(velocity, dt)
-            if self.lock_non_arm_qpos and self.fixed_qpos_indices.size:
-                qpos = self.configuration.data.qpos.copy()
-                qpos[self.fixed_qpos_indices] = self.initial_qpos[
-                    self.fixed_qpos_indices
-                ]
-                self.configuration.update(q=qpos)
+            self._apply_fixed_qpos()
             if self.collision.enabled:
                 report = self.collision.check_path(previous,self.configuration.data.qpos)
-                if not report.safe:
+                if not report.allowed:
                     self.configuration.update(q=previous)
-                    self.collision_blocked = report.message
+                    if not progressed:
+                        self.collision_blocked = report.message
                     break
+            progressed = True
             if np.linalg.norm(velocity) * dt < self.solution_tolerance:
                 break
+        self.last_solve_iterations = solved_iterations
         return self.configuration.data.qpos.copy()

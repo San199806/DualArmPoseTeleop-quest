@@ -13,3 +13,7 @@ core.*
 # Editors
 .vscode/
 .idea/
+
+# Local session logs and install metadata
+logs/
+*.egg-info/

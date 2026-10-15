@@ -18,6 +18,10 @@ class SensorFrame:
     right_elbow: Pose
     left_controller: Pose
     right_controller: Pose
+    left_shoulder: Pose = None
+    right_shoulder: Pose = None
+    hips: Pose = None
+    chest: Pose = None
 
 
 @dataclass(frozen=True)

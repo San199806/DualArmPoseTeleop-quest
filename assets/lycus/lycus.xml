@@ -1,0 +1,234 @@
+<?xml version='1.0' encoding='utf-8'?>
+<mujoco model="lycus">
+  <compiler angle="radian" meshdir="meshes" autolimits="true" />
+  <option timestep="0.01" gravity="0 0 -9.81" />
+  <visual>
+    <global azimuth="150" elevation="-18" />
+    <headlight ambient=".35 .35 .35" diffuse=".8 .8 .8" specular=".1 .1 .1" />
+  </visual>
+  <asset>
+    <mesh name="mesh_0_828d4f79b6eb" file="Chassis_link_828d4f79b6eb.stl" scale="1 1 1" />
+    <mesh name="mesh_1_758d48057ae8" file="Wheel1_link_758d48057ae8.stl" scale="1 1 1" />
+    <mesh name="mesh_2_24c1356150ca" file="Wheel2_link_24c1356150ca.stl" scale="1 1 1" />
+    <mesh name="mesh_3_7d6a589a7d3c" file="Wheel3_link_7d6a589a7d3c.stl" scale="1 1 1" />
+    <mesh name="mesh_4_b0c881e085d1" file="Wheel4_link_b0c881e085d1.stl" scale="1 1 1" />
+    <mesh name="mesh_5_001cf0e3fda2" file="Calf_link_001cf0e3fda2.stl" scale="1 1 1" />
+    <mesh name="mesh_6_f38d42bae328" file="Thigh_link_f38d42bae328.stl" scale="1 1 1" />
+    <mesh name="mesh_7_b5be1f6539c9" file="Waist_link_b5be1f6539c9.stl" scale="1 1 1" />
+    <mesh name="mesh_8_0bd9daa54d22" file="Chest_link_0bd9daa54d22.stl" scale="1 1 1" />
+    <mesh name="mesh_9_9a8be0479f06" file="Neck_link_9a8be0479f06.stl" scale="1 1 1" />
+    <mesh name="mesh_10_9b8b0d0c9d24" file="Head_link_9b8b0d0c9d24.stl" scale="1 1 1" />
+    <mesh name="mesh_11_2d5b8788427f" file="Shuangmu_link_2d5b8788427f.stl" scale="1 1 1" />
+    <mesh name="mesh_12_5cd9618a4ca0" file="Qianyuyan_link_5cd9618a4ca0.stl" scale="1 1 1" />
+    <mesh name="mesh_13_03f3619a4468" file="HouyuyanL_link_03f3619a4468.stl" scale="1 1 1" />
+    <mesh name="mesh_14_cf87ccf03ad6" file="HouyuyanR_link_cf87ccf03ad6.stl" scale="1 1 1" />
+    <mesh name="mesh_15_4bbc32045fe8" file="AR5-5_08L-W4C1C9-ZY2_base_4bbc32045fe8.stl" scale="0.001 0.001 0.001" />
+    <mesh name="mesh_16_fdb3ee7308f8" file="AR5-5_08L-W4C1C9-ZY2_link1_fdb3ee7308f8.stl" scale="0.001 0.001 0.001" />
+    <mesh name="mesh_17_183d4e17efd7" file="AR5-5_08L-W4C1C9-ZY2_link2_183d4e17efd7.stl" scale="0.001 0.001 0.001" />
+    <mesh name="mesh_18_85ceba87b6e1" file="AR5-5_08L-W4C1C9-ZY2_link3_85ceba87b6e1.stl" scale="0.001 0.001 0.001" />
+    <mesh name="mesh_19_68e13a43dccb" file="AR5-5_08L-W4C1C9-ZY2_link4_68e13a43dccb.stl" scale="0.001 0.001 0.001" />
+    <mesh name="mesh_20_0125e5bf7c77" file="AR5-5_08L-W4C1C9-ZY2_link5_0125e5bf7c77.stl" scale="0.001 0.001 0.001" />
+    <mesh name="mesh_21_e6120969880a" file="AR5-5_08L-W4C1C9-ZY2_link6_e6120969880a.stl" scale="0.001 0.001 0.001" />
+    <mesh name="mesh_22_ff61bfc769d0" file="AR5-5_08L-W4C1C9-ZY2_link7_ff61bfc769d0.stl" scale="0.001 0.001 0.001" />
+    <mesh name="mesh_23_4bbc32045fe8" file="AR5-5_08R-W4C1C9-ZY2_base_4bbc32045fe8.stl" scale="0.001 0.001 0.001" />
+    <mesh name="mesh_24_87def8c59f50" file="AR5-5_08R-W4C1C9-ZY2_link1_87def8c59f50.stl" scale="0.001 0.001 0.001" />
+    <mesh name="mesh_25_4418b25a88f1" file="AR5-5_08R-W4C1C9-ZY2_link2_4418b25a88f1.stl" scale="0.001 0.001 0.001" />
+    <mesh name="mesh_26_63c99f8a0881" file="AR5-5_08R-W4C1C9-ZY2_link3_63c99f8a0881.stl" scale="0.001 0.001 0.001" />
+    <mesh name="mesh_27_1246afa1fe4e" file="AR5-5_08R-W4C1C9-ZY2_link4_1246afa1fe4e.stl" scale="0.001 0.001 0.001" />
+    <mesh name="mesh_28_abb885d5bb97" file="AR5-5_08R-W4C1C9-ZY2_link5_abb885d5bb97.stl" scale="0.001 0.001 0.001" />
+    <mesh name="mesh_29_80a70e99f5a5" file="AR5-5_08R-W4C1C9-ZY2_link6_80a70e99f5a5.stl" scale="0.001 0.001 0.001" />
+    <mesh name="mesh_30_430c3461cd03" file="AR5-5_08R-W4C1C9-ZY2_link7_430c3461cd03.stl" scale="0.001 0.001 0.001" />
+  </asset>
+  <worldbody>
+    <light pos="1 0 3" dir="-.3 0 -1" />
+    <body name="world_link">
+      <body name="base_link" pos="0 0 0" quat="1 0 0 0">
+        <inertial pos="0 0 0" mass="0.001" fullinertia="1e-06 1e-06 1e-06 0 0 0" />
+        <body name="Chassis_link" pos="0 0 0" quat="1 0 0 0">
+          <inertial pos="-0.12299 0.00064384 -0.011783" mass="95.892" fullinertia="3.9762 4.0017 5.7903 0.0097039 -0.089985 0.010159" />
+          <geom name="Chassis_link_visual_0" pos="0 0 0" quat="1 0 0 0" group="2" contype="0" conaffinity="0" type="mesh" mesh="mesh_0_828d4f79b6eb" rgba="0.29804 0.29804 0.29804 1" />
+          <geom name="Chassis_link_collision_0" pos="0 0 0" quat="1 0 0 0" group="3" contype="1" conaffinity="1" type="mesh" mesh="mesh_0_828d4f79b6eb" />
+          <body name="Wheel1_link" pos="0.075 -0.1865 -0.145" quat="1 0 0 0">
+            <joint name="Whee1-joint" type="hinge" axis="0 1 0" limited="false" />
+            <inertial pos="-0.15814 0.18667 0.31852" mass="143.7" fullinertia="22.868 23.33 6.652 0.015383 -2.3907 0.038703" />
+            <geom name="Wheel1_link_visual_0" pos="0 0 0" quat="1 0 0 0" group="2" contype="0" conaffinity="0" type="mesh" mesh="mesh_1_758d48057ae8" rgba="1 1 1 1" />
+            <geom name="Wheel1_link_collision_0" pos="0 0 0" quat="1 0 0 0" group="3" contype="1" conaffinity="1" type="mesh" mesh="mesh_1_758d48057ae8" />
+          </body>
+          <body name="Wheel2_link" pos="0.075 0.1395 -0.145" quat="1 0 0 0">
+            <joint name="Whee2-joint" type="hinge" axis="0 1 0" limited="false" />
+            <inertial pos="-0.15814 -0.13933 0.31852" mass="143.7" fullinertia="22.868 23.33 6.652 0.015383 -2.3907 0.038703" />
+            <geom name="Wheel2_link_visual_0" pos="0 0 0" quat="1 0 0 0" group="2" contype="0" conaffinity="0" type="mesh" mesh="mesh_2_24c1356150ca" rgba="1 1 1 1" />
+            <geom name="Wheel2_link_collision_0" pos="0 0 0" quat="1 0 0 0" group="3" contype="1" conaffinity="1" type="mesh" mesh="mesh_2_24c1356150ca" />
+          </body>
+          <body name="Wheel3_link" pos="-0.331 -0.1865 -0.145" quat="1 0 0 0">
+            <joint name="Whee3-joint" type="hinge" axis="0 1 0" limited="false" />
+            <inertial pos="0.24786 0.18667 0.31852" mass="143.7" fullinertia="22.868 23.33 6.652 0.015383 -2.3907 0.038703" />
+            <geom name="Wheel3_link_visual_0" pos="0 0 0" quat="1 0 0 0" group="2" contype="0" conaffinity="0" type="mesh" mesh="mesh_3_7d6a589a7d3c" rgba="1 1 1 1" />
+            <geom name="Wheel3_link_collision_0" pos="0 0 0" quat="1 0 0 0" group="3" contype="1" conaffinity="1" type="mesh" mesh="mesh_3_7d6a589a7d3c" />
+          </body>
+          <body name="Wheel4_link" pos="-0.331 0.1395 -0.145" quat="1 0 0 0">
+            <joint name="Whee4-joint" type="hinge" axis="0 1 0" limited="false" />
+            <inertial pos="0.24786 -0.13933 0.31852" mass="143.7" fullinertia="22.868 23.33 6.652 0.015383 -2.3907 0.038703" />
+            <geom name="Wheel4_link_visual_0" pos="0 0 0" quat="1 0 0 0" group="2" contype="0" conaffinity="0" type="mesh" mesh="mesh_4_b0c881e085d1" rgba="1 1 1 1" />
+            <geom name="Wheel4_link_collision_0" pos="0 0 0" quat="1 0 0 0" group="3" contype="1" conaffinity="1" type="mesh" mesh="mesh_4_b0c881e085d1" />
+          </body>
+          <body name="Calf_link" pos="0 0 0" quat="1 0 0 0">
+            <joint name="Calf-joint" type="hinge" axis="0 1 0" range="-1.222 0.087" />
+            <inertial pos="-0.0068197 -0.0011282 0.19438" mass="22.687" fullinertia="0.39971 0.34095 0.14775 5.9491e-05 0.011537 9.3127e-05" />
+            <geom name="Calf_link_visual_0" pos="0 0 0" quat="1 0 0 0" group="2" contype="0" conaffinity="0" type="mesh" mesh="mesh_5_001cf0e3fda2" rgba="0.86667 0.86667 0.8902 1" />
+            <geom name="Calf_link_collision_0" pos="0 0 0" quat="1 0 0 0" group="3" contype="1" conaffinity="1" type="mesh" mesh="mesh_5_001cf0e3fda2" />
+            <body name="Thigh_link" pos="0 0 0.41" quat="1 0 0 0">
+              <joint name="Thigh-joint" type="hinge" axis="0 1 0" range="-1.581 2.461" />
+              <inertial pos="0.0011312 0.0001932 0.19063" mass="11.315" fullinertia="0.31781 0.31059 0.052 2.4209e-06 -0.0025123 0.0008699" />
+              <geom name="Thigh_link_visual_0" pos="0 0 0" quat="1 0 0 0" group="2" contype="0" conaffinity="0" type="mesh" mesh="mesh_6_f38d42bae328" rgba="1 1 1 1" />
+              <geom name="Thigh_link_collision_0" pos="0 0 0" quat="1 0 0 0" group="3" contype="1" conaffinity="1" type="mesh" mesh="mesh_6_f38d42bae328" />
+              <body name="Waist_link" pos="0 0 0.48" quat="1 0 0 0">
+                <joint name="Waist-joint" type="hinge" axis="0 1 0" range="-2.269 1.571" />
+                <inertial pos="-0.0001311870956 0.000354635443364 0.0469136306903" mass="4.08058055679" fullinertia="0.0302820823673 0.0293553949871 0.0110779504735 -2.98879354739e-06 3.56040966529e-05 0.00023900833115" />
+                <geom name="Waist_link_visual_0" pos="0 0 0" quat="1 0 0 0" group="2" contype="0" conaffinity="0" type="mesh" mesh="mesh_7_b5be1f6539c9" rgba="1 1 1 1" />
+                <geom name="Waist_link_collision_0" pos="0 0 0" quat="1 0 0 0" group="3" contype="1" conaffinity="1" type="mesh" mesh="mesh_7_b5be1f6539c9" />
+                <body name="Chest_link" pos="0 -0.00075 0.2112" quat="1 0 0 0">
+                  <joint name="Chest-joint" type="hinge" axis="0 0 1" range="-3.177 1.606" />
+                  <inertial pos="0.00025462 -0.00062012 0.067983" mass="6.6409" fullinertia="0.060869 0.045116 0.054644 -0.00036772 0.00012576 0.00060292" />
+                  <geom name="Chest_link_visual_0" pos="0 0 0" quat="1 0 0 0" group="2" contype="0" conaffinity="0" type="mesh" mesh="mesh_8_0bd9daa54d22" rgba="0.69804 0.69804 0.69804 1" />
+                  <geom name="Chest_link_collision_0" pos="0 0 0" quat="1 0 0 0" group="3" contype="1" conaffinity="1" type="mesh" mesh="mesh_8_0bd9daa54d22" />
+                  <body name="Neck_link" pos="0 -0.00025 0.098" quat="1 0 0 0">
+                    <joint name="Neck-joint" type="hinge" axis="0 0 1" range="-3.264 1.693" />
+                    <inertial pos="0.010112 -0.002919 0.1559" mass="0.81308" fullinertia="0.0028615 0.002908 0.00042554 5.3102e-05 -0.0004177 0.00015551" />
+                    <geom name="Neck_link_visual_0" pos="0 0 0" quat="1 0 0 0" group="2" contype="0" conaffinity="0" type="mesh" mesh="mesh_9_9a8be0479f06" rgba="0.86667 0.86667 0.8902 1" />
+                    <geom name="Neck_link_collision_0" pos="0 0 0" quat="1 0 0 0" group="3" contype="1" conaffinity="1" type="mesh" mesh="mesh_9_9a8be0479f06" />
+                    <body name="Head_link" pos="0.03 -0.043 0.207" quat="1 0 0 0">
+                      <joint name="Head-joint" type="hinge" axis="0 1 0" range="-0.716 0.489" />
+                      <inertial pos="0.014937 0.041735 0.028728" mass="1.4249" fullinertia="0.0063383 0.0044515 0.0049753 -3.7731e-05 0.0002181 4.2171e-06" />
+                      <geom name="Head_link_visual_0" pos="0 0 0" quat="1 0 0 0" group="2" contype="0" conaffinity="0" type="mesh" mesh="mesh_10_9b8b0d0c9d24" rgba="0.86667 0.86667 0.8902 1" />
+                      <geom name="Head_link_collision_0" pos="0 0 0" quat="1 0 0 0" group="3" contype="1" conaffinity="1" type="mesh" mesh="mesh_10_9b8b0d0c9d24" />
+                      <body name="Shuangmu_link" pos="0.05975 0.043 0.074599" quat="1 0 0 0">
+                        <inertial pos="-0.0110271374986 7.88353484104e-05 -0.000277447649961" mass="0.0489099207909" fullinertia="5.98144656521e-05 5.83573053977e-06 5.93271175096e-05 2.47671767168e-07 -1.08049683873e-07 1.07410116359e-07" />
+                        <geom name="Shuangmu_link_visual_0" pos="0 0 0" quat="1 0 0 0" group="2" contype="0" conaffinity="0" type="mesh" mesh="mesh_11_2d5b8788427f" rgba="0.792156862745 0.819607843137 0.933333333333 1" />
+                        <geom name="Shuangmu_link_collision_0" pos="0 0 0" quat="1 0 0 0" group="3" contype="1" conaffinity="1" type="mesh" mesh="mesh_11_2d5b8788427f" />
+                        <body name="camera_link" pos="0 0 0" quat="1 0 0 0" />
+                      </body>
+                      <body name="Qianyuyan_link" pos="0.0605 0.043 -0.035" quat="1 0 0 0">
+                        <inertial pos="-0.0159783626675 -1.04333133084e-07 5.79578844397e-05" mass="0.00967849429125" fullinertia="1.75298475946e-06 2.54230129604e-07 1.60401703066e-06 -5.21022475159e-12 1.0680593176e-11 -3.03573364567e-12" />
+                        <geom name="Qianyuyan_link_visual_0" pos="0 0 0" quat="1 0 0 0" group="2" contype="0" conaffinity="0" type="mesh" mesh="mesh_12_5cd9618a4ca0" rgba="0.929411764706 1 0.749019607843 1" />
+                        <geom name="Qianyuyan_link_collision_0" pos="0 0 0" quat="1 0 0 0" group="3" contype="1" conaffinity="1" type="mesh" mesh="mesh_12_5cd9618a4ca0" />
+                      </body>
+                      <body name="HouyuyanL_link" pos="-0.056144 0.10594 0.0233" quat="0.402728959693 0 0 0.915319280374">
+                        <inertial pos="-0.0167513697303 -1.52460581653e-05 0.000175377018799" mass="0.0455897788034" fullinertia="4.45459794973e-06 3.5865919864e-06 3.66640447694e-06 -1.16378025733e-09 -3.84320718705e-10 5.32761375292e-10" />
+                        <geom name="HouyuyanL_link_visual_0" pos="0 0 0" quat="1 0 0 0" group="2" contype="0" conaffinity="0" type="mesh" mesh="mesh_13_03f3619a4468" rgba="0.501960784314 0.501960784314 0.501960784314 1" />
+                        <geom name="HouyuyanL_link_collision_0" pos="0 0 0" quat="1 0 0 0" group="3" contype="1" conaffinity="1" type="mesh" mesh="mesh_13_03f3619a4468" />
+                      </body>
+                      <body name="HouyuyanR_link" pos="-0.056144 -0.019944 0.0233" quat="0.402728959693 0 0 -0.915319280374">
+                        <inertial pos="-0.0167513700379 -1.52475844495e-05 0.000175376004858" mass="0.0455897776418" fullinertia="4.45459793892e-06 3.58659103641e-06 3.66640531896e-06 -1.16345508385e-09 -3.84138585953e-10 5.32475546009e-10" />
+                        <geom name="HouyuyanR_link_visual_0" pos="0 0 0" quat="1 0 0 0" group="2" contype="0" conaffinity="0" type="mesh" mesh="mesh_14_cf87ccf03ad6" rgba="0.501960784314 0.501960784314 0.501960784314 1" />
+                        <geom name="HouyuyanR_link_collision_0" pos="0 0 0" quat="1 0 0 0" group="3" contype="1" conaffinity="1" type="mesh" mesh="mesh_14_cf87ccf03ad6" />
+                      </body>
+                    </body>
+                  </body>
+                  <body name="AR5-5_08L-W4C1C9-ZY2_base" pos="0 0.0775 0.1429" quat="0.500398163355 -0.499999841466 0.499999841466 0.499601836645">
+                    <geom name="AR5-5_08L-W4C1C9-ZY2_base_visual_0" pos="0 0 0" quat="1 0 0 0" group="2" contype="0" conaffinity="0" type="mesh" mesh="mesh_15_4bbc32045fe8" rgba="0.7 0.7 0.7 1" />
+                    <geom name="AR5-5_08L-W4C1C9-ZY2_base_collision_0" pos="0 0 0" quat="1 0 0 0" group="3" contype="1" conaffinity="1" type="mesh" mesh="mesh_15_4bbc32045fe8" />
+                    <body name="AR5-5_08L-W4C1C9-ZY2_link1" pos="0 0 0" quat="1 0 0 0">
+                      <joint name="AR5-5_08L-W4C1C9-ZY2_joint_1" type="hinge" axis="0 0 1" range="-3.1067 3.1067" />
+                      <inertial pos="-0.000184 0.001568 0.172804" mass="2.166" fullinertia="0.00332249 0.00260904 0.00317691 3.2e-07 -4.8e-07 -1.486e-05" />
+                      <geom name="AR5-5_08L-W4C1C9-ZY2_link1_visual_0" pos="0 0 0" quat="1 0 0 0" group="2" contype="0" conaffinity="0" type="mesh" mesh="mesh_16_fdb3ee7308f8" rgba="0.7 0.7 0.7 1" />
+                      <geom name="AR5-5_08L-W4C1C9-ZY2_link1_collision_0" pos="0 0 0" quat="1 0 0 0" group="3" contype="1" conaffinity="1" type="mesh" mesh="mesh_16_fdb3ee7308f8" />
+                      <body name="AR5-5_08L-W4C1C9-ZY2_link2" pos="0 0 0.1745" quat="1 0 0 0">
+                        <joint name="AR5-5_08L-W4C1C9-ZY2_joint_2" type="hinge" axis="0 1 0" range="-2.0944 2.0944" />
+                        <inertial pos="-1.7e-05 0.001795 0.106689" mass="1.903" fullinertia="0.00779803 0.00674819 0.00305507 2.48e-06 -2.26e-06 -0.00049283" />
+                        <geom name="AR5-5_08L-W4C1C9-ZY2_link2_visual_0" pos="0 0 0" quat="1 0 0 0" group="2" contype="0" conaffinity="0" type="mesh" mesh="mesh_17_183d4e17efd7" rgba="0.7 0.7 0.7 1" />
+                        <geom name="AR5-5_08L-W4C1C9-ZY2_link2_collision_0" pos="0 0 0" quat="1 0 0 0" group="3" contype="1" conaffinity="1" type="mesh" mesh="mesh_17_183d4e17efd7" />
+                        <body name="AR5-5_08L-W4C1C9-ZY2_link3" pos="0 0 0.332" quat="1 0 0 0">
+                          <joint name="AR5-5_08L-W4C1C9-ZY2_joint_3" type="hinge" axis="0 0 1" range="-3.1067 3.1067" />
+                          <inertial pos="0.008227 -0.001273 -0.020611" mass="1.845" fullinertia="0.00641285 0.00591595 0.00276583 9.09e-06 0.00034765 -2.314e-05" />
+                          <geom name="AR5-5_08L-W4C1C9-ZY2_link3_visual_0" pos="0 0 0" quat="1 0 0 0" group="2" contype="0" conaffinity="0" type="mesh" mesh="mesh_18_85ceba87b6e1" rgba="0.7 0.7 0.7 1" />
+                          <geom name="AR5-5_08L-W4C1C9-ZY2_link3_collision_0" pos="0 0 0" quat="1 0 0 0" group="3" contype="1" conaffinity="1" type="mesh" mesh="mesh_18_85ceba87b6e1" />
+                          <body name="AR5-5_08L-W4C1C9-ZY2_link4" pos="0.0105 0 0" quat="1 0 0 0">
+                            <joint name="AR5-5_08L-W4C1C9-ZY2_joint_4" type="hinge" axis="0 1 0" range="-1.0472 2.5307" />
+                            <inertial pos="-0.009242 -0.002172 0.084042" mass="1.037" fullinertia="0.00294639 0.00244447 0.00140961 -2.418e-05 -0.00012203 0.00022029" />
+                            <geom name="AR5-5_08L-W4C1C9-ZY2_link4_visual_0" pos="0 0 0" quat="1 0 0 0" group="2" contype="0" conaffinity="0" type="mesh" mesh="mesh_19_68e13a43dccb" rgba="0.7 0.7 0.7 1" />
+                            <geom name="AR5-5_08L-W4C1C9-ZY2_link4_collision_0" pos="0 0 0" quat="1 0 0 0" group="3" contype="1" conaffinity="1" type="mesh" mesh="mesh_19_68e13a43dccb" />
+                            <body name="AR5-5_08L-W4C1C9-ZY2_link5" pos="-0.0105 0 0.278" quat="1 0 0 0">
+                              <joint name="AR5-5_08L-W4C1C9-ZY2_joint_5" type="hinge" axis="0 0 1" range="-3.1067 3.1067" />
+                              <inertial pos="-0.000756 0.000723 -0.086764" mass="1.279" fullinertia="0.00241349 0.00200246 0.00158693 -3.807e-05 -4.536e-05 6.623e-05" />
+                              <geom name="AR5-5_08L-W4C1C9-ZY2_link5_visual_0" pos="0 0 0" quat="1 0 0 0" group="2" contype="0" conaffinity="0" type="mesh" mesh="mesh_20_0125e5bf7c77" rgba="0.7 0.7 0.7 1" />
+                              <geom name="AR5-5_08L-W4C1C9-ZY2_link5_collision_0" pos="0 0 0" quat="1 0 0 0" group="3" contype="1" conaffinity="1" type="mesh" mesh="mesh_20_0125e5bf7c77" />
+                              <body name="AR5-5_08L-W4C1C9-ZY2_link6" pos="0 0 0" quat="1 0 0 0">
+                                <joint name="AR5-5_08L-W4C1C9-ZY2_joint_6" type="hinge" axis="0 1 0" range="-1.0472 1.0472" />
+                                <inertial pos="-0.005104 0.000251 5.6e-05" mass="0.906" fullinertia="0.00061429 0.00074781 0.00075897 -8.8e-07 1.04e-06 -4.7e-07" />
+                                <geom name="AR5-5_08L-W4C1C9-ZY2_link6_visual_0" pos="0 0 0" quat="1 0 0 0" group="2" contype="0" conaffinity="0" type="mesh" mesh="mesh_21_e6120969880a" rgba="0.7 0.7 0.7 1" />
+                                <geom name="AR5-5_08L-W4C1C9-ZY2_link6_collision_0" pos="0 0 0" quat="1 0 0 0" group="3" contype="1" conaffinity="1" type="mesh" mesh="mesh_21_e6120969880a" />
+                                <body name="AR5-5_08L-W4C1C9-ZY2_link7" pos="0 0 0" quat="1 0 0 0">
+                                  <joint name="AR5-5_08L-W4C1C9-ZY2_joint_7" type="hinge" axis="1 0 0" range="-1.0472 1.0472" />
+                                  <inertial pos="-0.001562 -0.000366 0.05392" mass="0.33" fullinertia="0.00046062 0.00068652 0.00043943 2.69e-06 3.859e-05 -9.5e-07" />
+                                  <geom name="AR5-5_08L-W4C1C9-ZY2_link7_visual_0" pos="0 0 0" quat="1 0 0 0" group="2" contype="0" conaffinity="0" type="mesh" mesh="mesh_22_ff61bfc769d0" rgba="0.7 0.7 0.7 1" />
+                                  <geom name="AR5-5_08L-W4C1C9-ZY2_link7_collision_0" pos="0 0 0" quat="1 0 0 0" group="3" contype="1" conaffinity="1" type="mesh" mesh="mesh_22_ff61bfc769d0" />
+                                  <body name="AR5-5_08L-W4C1C9-ZY2_flan_link" pos="0 0 0.09" quat="1 0 0 0">
+                                    <body name="left_arm_ee_link" pos="0 0 0" quat="0.707106781187 0.707106781187 0 0" />
+                                  </body>
+                                </body>
+                              </body>
+                            </body>
+                          </body>
+                        </body>
+                      </body>
+                    </body>
+                  </body>
+                  <body name="AR5-5_08R-W4C1C9-ZY2_base" pos="0 -0.0775 0.1429" quat="0.500398163355 0.499999841466 0.499999841466 -0.499601836645">
+                    <geom name="AR5-5_08R-W4C1C9-ZY2_base_visual_0" pos="0 0 0" quat="1 0 0 0" group="2" contype="0" conaffinity="0" type="mesh" mesh="mesh_23_4bbc32045fe8" rgba="0.7 0.7 0.7 1" />
+                    <geom name="AR5-5_08R-W4C1C9-ZY2_base_collision_0" pos="0 0 0" quat="1 0 0 0" group="3" contype="1" conaffinity="1" type="mesh" mesh="mesh_23_4bbc32045fe8" />
+                    <body name="AR5-5_08R-W4C1C9-ZY2_link1" pos="0 0 0" quat="1 0 0 0">
+                      <joint name="AR5-5_08R-W4C1C9-ZY2_joint_1" type="hinge" axis="0 0 1" range="-3.1067 3.1067" />
+                      <inertial pos="0.000186 -0.001543 0.172784" mass="2.166" fullinertia="0.00329374 0.00258807 0.00314817 2.9e-07 4.8e-07 1.496e-05" />
+                      <geom name="AR5-5_08R-W4C1C9-ZY2_link1_visual_0" pos="0 0 0" quat="1 0 0 0" group="2" contype="0" conaffinity="0" type="mesh" mesh="mesh_24_87def8c59f50" rgba="0.7 0.7 0.7 1" />
+                      <geom name="AR5-5_08R-W4C1C9-ZY2_link1_collision_0" pos="0 0 0" quat="1 0 0 0" group="3" contype="1" conaffinity="1" type="mesh" mesh="mesh_24_87def8c59f50" />
+                      <body name="AR5-5_08R-W4C1C9-ZY2_link2" pos="0 0 0.1745" quat="1 0 0 0">
+                        <joint name="AR5-5_08R-W4C1C9-ZY2_joint_2" type="hinge" axis="0 1 0" range="-2.0944 2.0944" />
+                        <inertial pos="1.7e-05 -0.001795 0.106691" mass="1.903" fullinertia="0.00779827 0.00674843 0.00305518 2.48e-06 2.26e-06 0.00049284" />
+                        <geom name="AR5-5_08R-W4C1C9-ZY2_link2_visual_0" pos="0 0 0" quat="1 0 0 0" group="2" contype="0" conaffinity="0" type="mesh" mesh="mesh_25_4418b25a88f1" rgba="0.7 0.7 0.7 1" />
+                        <geom name="AR5-5_08R-W4C1C9-ZY2_link2_collision_0" pos="0 0 0" quat="1 0 0 0" group="3" contype="1" conaffinity="1" type="mesh" mesh="mesh_25_4418b25a88f1" />
+                        <body name="AR5-5_08R-W4C1C9-ZY2_link3" pos="0 0 0.332" quat="1 0 0 0">
+                          <joint name="AR5-5_08R-W4C1C9-ZY2_joint_3" type="hinge" axis="0 0 1" range="-3.1067 3.1067" />
+                          <inertial pos="0.009022 0.0009 -0.019936" mass="1.845" fullinertia="0.00635592 0.00581609 0.00269115 1.599e-05 0.00029945 4.683e-05" />
+                          <geom name="AR5-5_08R-W4C1C9-ZY2_link3_visual_0" pos="0 0 0" quat="1 0 0 0" group="2" contype="0" conaffinity="0" type="mesh" mesh="mesh_26_63c99f8a0881" rgba="0.7 0.7 0.7 1" />
+                          <geom name="AR5-5_08R-W4C1C9-ZY2_link3_collision_0" pos="0 0 0" quat="1 0 0 0" group="3" contype="1" conaffinity="1" type="mesh" mesh="mesh_26_63c99f8a0881" />
+                          <body name="AR5-5_08R-W4C1C9-ZY2_link4" pos="0.0105 0 0" quat="1 0 0 0">
+                            <joint name="AR5-5_08R-W4C1C9-ZY2_joint_4" type="hinge" axis="0 1 0" range="-1.0472 2.5307" />
+                            <inertial pos="-0.009272 0.002169 0.084042" mass="1.037" fullinertia="0.0029461 0.00244455 0.00140934 2.481e-05 -0.0001185 -0.00022011" />
+                            <geom name="AR5-5_08R-W4C1C9-ZY2_link4_visual_0" pos="0 0 0" quat="1 0 0 0" group="2" contype="0" conaffinity="0" type="mesh" mesh="mesh_27_1246afa1fe4e" rgba="0.7 0.7 0.7 1" />
+                            <geom name="AR5-5_08R-W4C1C9-ZY2_link4_collision_0" pos="0 0 0" quat="1 0 0 0" group="3" contype="1" conaffinity="1" type="mesh" mesh="mesh_27_1246afa1fe4e" />
+                            <body name="AR5-5_08R-W4C1C9-ZY2_link5" pos="-0.0105 0 0.278" quat="1 0 0 0">
+                              <joint name="AR5-5_08R-W4C1C9-ZY2_joint_5" type="hinge" axis="0 0 1" range="-3.1067 3.1067" />
+                              <inertial pos="-0.000776 -0.000804 -0.086734" mass="1.279" fullinertia="0.00240951 0.00200115 0.00158266 4.151e-05 -4.311e-05 -6.491e-05" />
+                              <geom name="AR5-5_08R-W4C1C9-ZY2_link5_visual_0" pos="0 0 0" quat="1 0 0 0" group="2" contype="0" conaffinity="0" type="mesh" mesh="mesh_28_abb885d5bb97" rgba="0.7 0.7 0.7 1" />
+                              <geom name="AR5-5_08R-W4C1C9-ZY2_link5_collision_0" pos="0 0 0" quat="1 0 0 0" group="3" contype="1" conaffinity="1" type="mesh" mesh="mesh_28_abb885d5bb97" />
+                              <body name="AR5-5_08R-W4C1C9-ZY2_link6" pos="0 0 0" quat="1 0 0 0">
+                                <joint name="AR5-5_08R-W4C1C9-ZY2_joint_6" type="hinge" axis="0 1 0" range="-1.0472 1.0472" />
+                                <inertial pos="-0.005059 -0.00025 -5.5e-05" mass="0.906" fullinertia="0.00061487 0.00074943 0.00076056 9.2e-07 -9.7e-07 -4.7e-07" />
+                                <geom name="AR5-5_08R-W4C1C9-ZY2_link6_visual_0" pos="0 0 0" quat="1 0 0 0" group="2" contype="0" conaffinity="0" type="mesh" mesh="mesh_29_80a70e99f5a5" rgba="0.7 0.7 0.7 1" />
+                                <geom name="AR5-5_08R-W4C1C9-ZY2_link6_collision_0" pos="0 0 0" quat="1 0 0 0" group="3" contype="1" conaffinity="1" type="mesh" mesh="mesh_29_80a70e99f5a5" />
+                                <body name="AR5-5_08R-W4C1C9-ZY2_link7" pos="0 0 0" quat="1 0 0 0">
+                                  <joint name="AR5-5_08R-W4C1C9-ZY2_joint_7" type="hinge" axis="1 0 0" range="-1.0472 1.0472" />
+                                  <inertial pos="-0.00122 0.000673 0.053984" mass="0.33" fullinertia="0.0004602 0.00068698 0.00043963 -2.66e-06 4.064e-05 4.24e-06" />
+                                  <geom name="AR5-5_08R-W4C1C9-ZY2_link7_visual_0" pos="0 0 0" quat="1 0 0 0" group="2" contype="0" conaffinity="0" type="mesh" mesh="mesh_30_430c3461cd03" rgba="0.7 0.7 0.7 1" />
+                                  <geom name="AR5-5_08R-W4C1C9-ZY2_link7_collision_0" pos="0 0 0" quat="1 0 0 0" group="3" contype="1" conaffinity="1" type="mesh" mesh="mesh_30_430c3461cd03" />
+                                  <body name="AR5-5_08R-W4C1C9-ZY2_flan_link" pos="0 0 0.09" quat="1 0 0 0">
+                                    <body name="right_arm_ee_link" pos="0 0 0" quat="0.707106781187 0.707106781187 0 0" />
+                                  </body>
+                                </body>
+                              </body>
+                            </body>
+                          </body>
+                        </body>
+                      </body>
+                    </body>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+  </worldbody>
+</mujoco>

@@ -6,10 +6,13 @@ import time
 import mujoco.viewer
 import numpy as np
 
+from scipy.spatial.transform import Rotation
+
 from .diagnostics import RuntimeDiagnostics
 from .ik_solver import DualArmIKSolver
 from .mapper import PoseArmMapper
-from .xrobot_input import XRobotInput
+from .types import ArmTarget, DualArmTargets, Pose
+from .skeleton_input import SkeletonInput
 from .safety import CommandLimiter, FreshnessWatchdog
 from .recording import RecordedInput, RecordingInput
 from .configuration import load_configuration, print_summary
@@ -26,6 +29,7 @@ class TeleopApplication:
         record_path=None,
         replay_path=None,
         robot=None,
+        skeleton_url=None,
     ):
         config_path = pathlib.Path(config_path).resolve()
         loaded = load_configuration(config_path,robot=robot)
@@ -49,7 +53,11 @@ class TeleopApplication:
             self.simulation = True
             self.input = RecordedInput(replay_path)
         else:
-            self.input = XRobotInput(self.config["trackers"])
+            url = skeleton_url
+            if url is None:
+                url = self.config["runtime"].get("skeleton_url") or None
+            hold = float(self.config["runtime"].get("calibration_hold_s", 1.0))
+            self.input = SkeletonInput(url, key_hold_s=hold+0.25)
         if record_path:
             self.input = RecordingInput(self.input, record_path)
         self.ik = DualArmIKSolver(
@@ -77,6 +85,9 @@ class TeleopApplication:
         self.calibration_last_timestamp = None
         self.calibration_in_progress = False
         self.frame_index = 0
+        self._loop_count = 0
+        self._loop_window_at = None
+        self._loop_window_count = 0
         self.viewer_debug_data = None
         self.last_sensor_timestamp = None
         self.last_sensor_change_time = time.monotonic()
@@ -84,6 +95,8 @@ class TeleopApplication:
         self.sensor_stale_reported = False
         self.last_safe_command = None
         self.last_applied_qpos = self.ik.initial_qpos.copy()
+        self.yaw_joint = self._torso_joint(self.config.get("waist_joint"))
+        self.pitch_joint = self._torso_joint(self.config.get("pitch_joint"))
         self.needs_command_seed = True
         self.output_held = True
         self.watchdog = FreshnessWatchdog()
@@ -94,11 +107,14 @@ class TeleopApplication:
         self.real_state_warning_printed = False
         self.last_ik_error_warning_time = 0.0
         self.last_collision_warning_time = 0.0
+        self.last_glitch_warning_time = 0.0
         self.last_redis_warning_time = 0.0
         self.redis = None
         self.redis_pipeline = None
         runtime = self.config["runtime"]
         self.period = 1.0 / float(runtime["frequency_hz"])
+        self.command_dt = self.period
+        self._command_clock = None
         self.print_interval = max(1, int(runtime["print_every_n_frames"]))
         self.redis_key = runtime["redis_key"]
         self.controller_key = runtime["controller_key"]
@@ -208,7 +224,6 @@ class TeleopApplication:
             "arms": self.config["arms"],
             "sensor": self.config["sensor"],
             "mapping": self.config.get("mapping", {}),
-            "trackers": self.config["trackers"],
             "initial_qpos": self.config["initial_qpos"],
         }
         canonical = json.dumps(
@@ -275,8 +290,6 @@ class TeleopApplication:
             saved = json.loads(self.calibration_path.read_text(encoding="utf-8"))
             if saved.get("model_xml") != self.config["model_xml"]:
                 raise ValueError("robot model does not match")
-            if saved.get("trackers") != self.config["trackers"]:
-                raise ValueError("tracker serial numbers do not match")
             if saved.get("profile_signature") != self.calibration_signature:
                 raise ValueError("robot profile or initial_qpos changed")
             self.mapper.load_calibration(saved["mapper"], self.ik.calibration_poses())
@@ -291,7 +304,6 @@ class TeleopApplication:
         saved = {
             "version": 1,
             "model_xml": self.config["model_xml"],
-            "trackers": self.config["trackers"],
             "profile_signature": self.calibration_signature,
             "mapper": self.mapper.export_calibration(),
         }
@@ -321,6 +333,15 @@ class TeleopApplication:
                 f"[Calibration] {side}: upper={calibration.upper_length:.4f} m, "
                 f"forearm={calibration.forearm_length:.4f} m"
             )
+            if self.mapper.skeleton_segments:
+                human_upper = self.mapper.human_upper_lengths[side]
+                human_forearm = self.mapper.human_forearm_lengths[side]
+                print(
+                    f"[Calibration] {side} human: upper={human_upper:.4f} m, "
+                    f"forearm={human_forearm:.4f} m, "
+                    f"scale=({calibration.upper_length/human_upper:.3f}, "
+                    f"{calibration.forearm_length/human_forearm:.3f})"
+                )
         human_shoulders = {
             side: frame.head.position
             + frame.waist.rotation.apply(
@@ -518,17 +539,24 @@ class TeleopApplication:
         age = self.watchdog.age_ms("global", timestamp, now)
         for name, value in controller_data.get("device_timestamps", {}).items():
             age = max(age, self.watchdog.age_ms(name, value, now))
-        if age < self.sensor_hold_timeout_ms:
-            self.sensor_stale_reported = False
         return age
+
+    def _note_command_dt(self):
+        now = time.perf_counter()
+        if self._command_clock is not None:
+            self.command_dt = float(np.clip(now - self._command_clock, 1e-3, 0.1))
+        self._command_clock = now
 
     def _limit_command(self, desired):
         elapsed = max(0.0, time.monotonic() - self.command_transition_started)
         ramp = min(1.0, elapsed / max(self.command_ramp_s, self.period))
-        command, self.pending_velocity = self.limiter.propose(desired, self.period, ramp)
+        command, self.pending_velocity = self.limiter.propose(
+            desired, self.command_dt, ramp
+        )
         return command
 
     def _step(self):
+        self._note_command_dt()
         step_started, loop_dt_ms = self.diagnostics.begin_step()
         self.viewer_debug_data = None
         timings = {}
@@ -575,7 +603,9 @@ class TeleopApplication:
                 f"[Safety] tracking unavailable for {stream_stale_ms:.0f} ms; teleoperation paused"
             )
         sensor_ready = stream_stale_ms < self.sensor_hold_timeout_ms
-        if not sensor_ready and not self.sensor_stale_reported:
+        if sensor_ready:
+            self.sensor_stale_reported = False
+        elif not self.sensor_stale_reported:
             print(
                 f"[Safety] sensor data stale for {stream_stale_ms:.0f} ms; command held"
             )
@@ -594,7 +624,7 @@ class TeleopApplication:
         if recalibrate:
             stage_started = time.perf_counter()
             if frame is None:
-                print("[Calibration] failed: tracker pose is incomplete")
+                print("[Calibration] failed: Quest pose is incomplete")
             else:
                 self.mapper.reset()
                 self._reset_calibration_window()
@@ -671,12 +701,24 @@ class TeleopApplication:
                 self.calibration_in_progress = False
 
             stage_started = time.perf_counter()
-            targets = self.mapper.map(frame)
+            tracked = self.mapper.stabilize_sensor(frame)
+            if isinstance(self.mapper.sensor_glitch, str) and self.mapper.sensor_glitch:
+                now = time.monotonic()
+                if now - self.last_glitch_warning_time >= 1.0:
+                    print(f"[Safety] tracking glitch held: {self.mapper.sensor_glitch}")
+                    self.last_glitch_warning_time = now
+            targets = self.mapper.map(tracked)
+            self._set_waist_override(tracked)
+            targets = self._rotate_targets_with_waist(targets)
             timings["mapping_ms"] = (
                 time.perf_counter() - stage_started
             ) * 1000.0
             stage_started = time.perf_counter()
             qpos = self.ik.solve(targets)
+            if qpos is not None and self.mapper.at_calibration_pose:
+                qpos = self._qpos_toward_initial(self.last_applied_qpos)
+                self.ik.configuration.update(q=qpos)
+                self.ik.collision_blocked = None
             timings["ik_ms"] = (time.perf_counter() - stage_started) * 1000.0
             self.viewer_debug_data = self._ik_debug_data(targets)
             wrist_errors = [
@@ -685,6 +727,15 @@ class TeleopApplication:
                 if point["joint"] == "wrist"
             ]
             timings["ik_wrist_error_m"] = max(wrist_errors, default=0.0)
+            held_qpos = self.last_applied_qpos
+            self.ik.configuration.update(q=held_qpos)
+            held_wrist_error = max(
+                (point["error_m"] for point in self._ik_debug_data(targets) if point["joint"] == "wrist"),
+                default=0.0,
+            )
+            if qpos is not None:
+                self.ik.configuration.update(q=qpos)
+            timings["held_wrist_error_m"] = held_wrist_error
             if self.frame_index % self.print_interval == 0:
                 left = targets.left.wrist.position
                 right = targets.right.wrist.position
@@ -698,7 +749,13 @@ class TeleopApplication:
         if collision_message:
             command = None
         if command is not None:
-            if timings.get("ik_wrist_error_m", 0.0) > self.max_wrist_ik_error_m:
+            if (
+                not self.mapper.at_calibration_pose
+                and self._wrist_solution_rejected(
+                    timings.get("ik_wrist_error_m", 0.0),
+                    timings.get("held_wrist_error_m", 0.0),
+                )
+            ):
                 now = time.monotonic()
                 if now - self.last_ik_error_warning_time >= 1.0:
                     print(
@@ -722,15 +779,14 @@ class TeleopApplication:
                 report = guard.check_path(measured,proposed)
             timings['collision_check_ms'] = (time.perf_counter()-checked_at)*1000
             timings['collision_distance_m'] = report.distance_m
-            if not report.safe:
+            if not report.allowed:
                 collision_message = report.message
                 command = None
         if collision_message:
             timings['collision_blocked'] = 1.0
-            self.active = False
             now = time.monotonic()
             if now-getattr(self,'last_collision_warning_time',0.0) >= 1:
-                print('[Collision] paused; output invalid: '+collision_message)
+                print('[Collision] command held: '+collision_message)
                 self.last_collision_warning_time = now
         stage_started = time.perf_counter()
         command_valid = command is not None and self.active and sensor_ready
@@ -739,7 +795,9 @@ class TeleopApplication:
             self.limiter.commit(command, self.pending_velocity)
             self.last_safe_command = command.copy()
             self.last_applied_qpos = self.ik.expand_command(command, self.last_applied_qpos)
-        else:
+            for index, value in self.ik.qpos_overrides.items():
+                self.last_applied_qpos[index] = value
+        elif not (self.active and sensor_ready):
             self.output_held = True
             self.needs_command_seed = True
         self.ik.configuration.update(q=self.last_applied_qpos)
@@ -765,6 +823,112 @@ class TeleopApplication:
             self.mapper.last_debug_metrics if targets is not None else None,
         )
         return True
+
+    def _torso_joint(self, name):
+        if not name:
+            return None
+        model = self.ik.model
+        joint_id = int(model.joint(name).id)
+        data = self.ik.configuration.data
+        body_id = int(model.jnt_bodyid[joint_id])
+        return {
+            "index": int(model.jnt_qposadr[joint_id]),
+            "range": np.asarray(model.jnt_range[joint_id], dtype=float),
+            "anchor": data.xpos[body_id].copy(),
+            "axis": data.xaxis[joint_id].copy(),
+        }
+
+    def _command_torso_joint(self, joint, measurement, calibration):
+        if joint is None or calibration is None:
+            return
+        index = joint["index"]
+        self.ik.qpos_overrides[index] = PoseArmMapper.torso_joint_target(
+            measurement,
+            calibration,
+            float(self.ik.initial_qpos[index]),
+            float(joint["range"][0]),
+            float(joint["range"][1]),
+            float(self.last_applied_qpos[index]),
+            self.max_joint_velocity * self.command_dt,
+        )
+
+    def _torso_delta(self, joint):
+        if joint is None:
+            return 0.0
+        index = joint["index"]
+        return (
+            self.ik.qpos_overrides.get(index, float(self.ik.initial_qpos[index]))
+            - float(self.ik.initial_qpos[index])
+        )
+
+    def _set_waist_override(self, frame):
+        if self.yaw_joint is not None:
+            self._command_torso_joint(
+                self.yaw_joint,
+                PoseArmMapper.yaw_of(frame.waist.rotation),
+                self.mapper.calibration_yaw,
+            )
+        if self.pitch_joint is not None:
+            pitch = PoseArmMapper._frame_torso_pitch(frame)
+            if pitch is not None:
+                self._command_torso_joint(
+                    self.pitch_joint, pitch, self.mapper.calibration_pitch
+                )
+
+    def _rotate_targets_with_waist(self, targets):
+        pitch = self._torso_delta(self.pitch_joint)
+        yaw = self._torso_delta(self.yaw_joint)
+        if abs(pitch) < 1e-8 and abs(yaw) < 1e-8:
+            return targets
+        pitch_turn = Rotation.from_rotvec(self.pitch_joint["axis"] * pitch) if abs(pitch) >= 1e-8 else None
+        yaw_turn = Rotation.from_euler("z", yaw) if abs(yaw) >= 1e-8 else None
+
+        def spin(pose):
+            position = np.asarray(pose.position, dtype=float)
+            rotation = pose.rotation
+            if pitch_turn is not None:
+                anchor = self.pitch_joint["anchor"]
+                position = anchor + pitch_turn.apply(position - anchor)
+                rotation = pitch_turn * rotation
+            if yaw_turn is not None:
+                position = yaw_turn.apply(position)
+                rotation = yaw_turn * rotation
+            return Pose(position, rotation)
+
+        return DualArmTargets(
+            ArmTarget(spin(targets.left.elbow), spin(targets.left.wrist)),
+            ArmTarget(spin(targets.right.elbow), spin(targets.right.wrist)),
+        )
+
+    def _qpos_toward_initial(self, start):
+        """Move toward the calibrated L pose along a collision-free joint path."""
+        goal = self.ik.initial_qpos.copy()
+        for index, value in self.ik.qpos_overrides.items():
+            goal[index] = value
+        start = np.asarray(start, dtype=np.float64).copy()
+        guard = getattr(self.ik, "collision", None)
+        if guard is None or not guard.enabled:
+            return goal
+        if guard.check_path(start, goal).allowed:
+            return goal
+        best = start
+        low, high = 0.0, 1.0
+        for _ in range(6):
+            mid = 0.5 * (low + high)
+            candidate = start + mid * (goal - start)
+            if guard.check_path(start, candidate).allowed:
+                best = candidate
+                low = mid
+            else:
+                high = mid
+        return best
+
+    def _wrist_solution_rejected(self, solved_error, held_error):
+        """Hold only a solution that is still far and clearly worse than the pose on screen."""
+        return (
+            solved_error > self.max_wrist_ik_error_m
+            and solved_error > held_error + 0.02
+        )
 
     def _ik_debug_data(self, targets):
         points = []
@@ -862,12 +1026,36 @@ class TeleopApplication:
                     error_color,
                 )
 
+    def _report_loop_rate(self):
+        now = time.perf_counter()
+        self._loop_count += 1
+        started = self._loop_window_at
+        if started is None:
+            self._loop_window_at = now
+            self._loop_window_count = self._loop_count
+            return
+        elapsed = now - started
+        if elapsed < 1.0:
+            return
+        rate_hz = (self._loop_count - self._loop_window_count) / elapsed
+        print(f"[Loop] solve {rate_hz:.1f} Hz")
+        self._loop_window_at = now
+        self._loop_window_count = self._loop_count
+
+    def _on_key(self, keycode):
+        target = self.input
+        if hasattr(target, "press_key"):
+            target.press_key(keycode)
+
     def run(self):
         print(f"[Robot] {self.robot_name}, nq={self.ik.model.nq}")
         print(f"[Mapping] mode={self.mapper.mode}")
         if self.simulation:
             print("[Mode] simulation: real_robot_joint_state is ignored")
-        print("[Controls] A: teleop/pause, hold Y: recalibrate, X: exit")
+        if getattr(self, "replay", False):
+            print("[Controls] A: teleop/pause, hold Y: recalibrate, X: exit")
+        else:
+            print("[Controls] right A: teleop/pause, hold left Y: recalibrate, left X: exit")
         if self.require_session_calibration:
             print(
                 "[Calibration] every process start requires a stationary "
@@ -887,11 +1075,13 @@ class TeleopApplication:
                     time.sleep(
                         max(0.0, self.period - (time.perf_counter() - started))
                     )
+                    self._report_loop_rate()
                 return
 
             with mujoco.viewer.launch_passive(
                 self.ik.model,
                 self.ik.configuration.data,
+                key_callback=self._on_key,
                 show_left_ui=False,
                 show_right_ui=False,
             ) as viewer:
@@ -904,6 +1094,7 @@ class TeleopApplication:
                     time.sleep(
                         max(0.0, self.period - (time.perf_counter() - started))
                     )
+                    self._report_loop_rate()
         finally:
             try:
                 self._publish(self.last_controller_data, command_valid=False)

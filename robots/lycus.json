@@ -1,0 +1,85 @@
+{
+  "schema_version": 1,
+  "robot": "lycus",
+  "model_xml": "assets/lycus/lycus.xml",
+  "frames": {
+    "base": "base_link",
+    "left_shoulder": "AR5-5_08L-W4C1C9-ZY2_link2",
+    "left_elbow": "AR5-5_08L-W4C1C9-ZY2_link4",
+    "left_wrist": "left_arm_ee_link",
+    "right_shoulder": "AR5-5_08R-W4C1C9-ZY2_link2",
+    "right_elbow": "AR5-5_08R-W4C1C9-ZY2_link4",
+    "right_wrist": "right_arm_ee_link"
+  },
+  "arms": {
+    "left": {
+      "joint_names": [
+        "AR5-5_08L-W4C1C9-ZY2_joint_1",
+        "AR5-5_08L-W4C1C9-ZY2_joint_2",
+        "AR5-5_08L-W4C1C9-ZY2_joint_3",
+        "AR5-5_08L-W4C1C9-ZY2_joint_4",
+        "AR5-5_08L-W4C1C9-ZY2_joint_5",
+        "AR5-5_08L-W4C1C9-ZY2_joint_6",
+        "AR5-5_08L-W4C1C9-ZY2_joint_7"
+      ]
+    },
+    "right": {
+      "joint_names": [
+        "AR5-5_08R-W4C1C9-ZY2_joint_1",
+        "AR5-5_08R-W4C1C9-ZY2_joint_2",
+        "AR5-5_08R-W4C1C9-ZY2_joint_3",
+        "AR5-5_08R-W4C1C9-ZY2_joint_4",
+        "AR5-5_08R-W4C1C9-ZY2_joint_5",
+        "AR5-5_08R-W4C1C9-ZY2_joint_6",
+        "AR5-5_08R-W4C1C9-ZY2_joint_7"
+      ]
+    }
+  },
+  "initial_qpos": [
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.03241106533032737,
+    1.5705188401567014,
+    -1.562002114064245,
+    1.6392663181807143,
+    -2.9868417523063395,
+    0.039719192448777266,
+    -0.03353784935282842,
+    -0.03241106533032737,
+    1.5705188401567014,
+    1.562002114064245,
+    1.6392663181807143,
+    2.9868417523063395,
+    0.039719192448777266,
+    0.03353784935282842
+  ],
+  "editor": {
+    "forward_axis": "+x"
+  },
+  "runtime": {
+    "redis_key": "action_lycus",
+    "command_output": "arm_joints",
+    "max_joint_acceleration_rad_s2": 12.0
+  },
+  "waist_joint": "Chest-joint",
+  "pitch_joint": "Waist-joint",
+  "ik": {
+    "wrist_position_cost": 100.0,
+    "wrist_orientation_cost": 5.0,
+    "collision": {
+      "geom_groups": [
+        3
+      ],
+      "adjacent_body_hops": 2,
+      "minimum_distance_m": 0.002
+    }
+  }
+}

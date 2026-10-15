@@ -61,6 +61,17 @@ class CollisionTests(unittest.TestCase):
         self.assertTrue(np.all(constraint.G@np.array([.01,.01]) <= constraint.h))
         self.assertTrue(np.any(constraint.G@np.array([.02,0]) > constraint.h))
 
+    def test_unsafe_start_can_recover_toward_clearance(self):
+        _,guard = self.fixture()
+        start = np.array([.5,0.])
+        safer = np.array([.48,0.])
+        self.assertFalse(guard.check(start).safe)
+        report = guard.check_path(start,safer)
+        self.assertTrue(report.allowed)
+        self.assertTrue(report.recovering)
+        worse = guard.check_path(start,np.array([.52,0.]))
+        self.assertFalse(worse.allowed)
+
     def test_disabled_is_explicit(self):
         _,guard = self.fixture(enabled=False)
         self.assertTrue(guard.check([.5,0]).safe)

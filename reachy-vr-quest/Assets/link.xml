@@ -1,0 +1,3 @@
+<linker>
+  <assembly fullname="websocket-sharp" preserve="all"/>
+</linker>

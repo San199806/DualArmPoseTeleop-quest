@@ -23,6 +23,11 @@ def parse_args():
         help="custom robot profile JSON",
     )
     parser.add_argument("--redis-host", default=None)
+    parser.add_argument(
+        "--skeleton-url",
+        default=None,
+        help="poll an external daemon instead of listening on port 8000",
+    )
     parser.add_argument("--headless", action="store_true")
     parser.add_argument("--auto-start", action="store_true")
     parser.add_argument("--print-config", action="store_true", help="print effective settings without SDK/Redis")
@@ -61,4 +66,5 @@ if __name__ == "__main__":
         record_path=args.record,
         replay_path=args.replay,
         robot=args.robot if not args.config else None,
+        skeleton_url=args.skeleton_url,
     ).run()

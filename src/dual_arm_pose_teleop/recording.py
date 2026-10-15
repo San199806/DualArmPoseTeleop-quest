@@ -14,21 +14,35 @@ from .types import Pose, SensorFrame
 def encode_frame(frame):
     if frame is None:
         return None
-    return {f.name: {"position": getattr(frame, f.name).position.tolist(),
-                     "quaternion_xyzw": getattr(frame, f.name).rotation.as_quat().tolist()}
-            for f in fields(SensorFrame)}
+    encoded = {}
+    for field in fields(SensorFrame):
+        pose = getattr(frame, field.name)
+        if pose is None:
+            encoded[field.name] = None
+            continue
+        encoded[field.name] = {
+            "position": pose.position.tolist(),
+            "quaternion_xyzw": pose.rotation.as_quat().tolist(),
+        }
+    return encoded
 
 
 def decode_frame(data):
     if data is None:
         return None
     poses = {}
-    for f in fields(SensorFrame):
-        p = np.asarray(data[f.name]["position"], dtype=float)
-        q = np.asarray(data[f.name]["quaternion_xyzw"], dtype=float)
-        if p.shape != (3,) or q.shape != (4,) or not np.all(np.isfinite(np.r_[p, q])):
+    for field in fields(SensorFrame):
+        item = data.get(field.name)
+        if item is None:
+            if field.name.endswith("shoulder") or field.name in ("hips", "chest"):
+                poses[field.name] = None
+                continue
             raise ValueError("Invalid recorded pose")
-        poses[f.name] = Pose(p, Rotation.from_quat(q))
+        position = np.asarray(item["position"], dtype=float)
+        quaternion = np.asarray(item["quaternion_xyzw"], dtype=float)
+        if position.shape != (3,) or quaternion.shape != (4,) or not np.all(np.isfinite(np.r_[position, quaternion])):
+            raise ValueError("Invalid recorded pose")
+        poses[field.name] = Pose(position, Rotation.from_quat(quaternion))
     return SensorFrame(**poses)
 
 
@@ -56,6 +70,10 @@ class RecordingInput:
             self.error = str(error)
         finally:
             self.file.close()
+
+    def press_key(self, keycode):
+        if hasattr(self.source, "press_key"):
+            self.source.press_key(keycode)
 
     def read(self):
         frame, controller = self.source.read()

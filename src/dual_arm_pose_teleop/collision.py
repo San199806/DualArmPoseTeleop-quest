@@ -17,6 +17,11 @@ class CollisionReport:
     distance_m: float
     pair: str
     message: str
+    recovering: bool = False
+
+    @property
+    def allowed(self):
+        return self.safe or self.recovering
 
 
 class CollisionGuard:
@@ -136,9 +141,16 @@ class CollisionGuard:
 
     def check_path(self, start, end):
         first = self.check(start)
-        if not first.safe or not self.enabled:
+        if not self.enabled:
             return first
         last = self.check(end)
+        if not first.safe:
+            if last.distance_m > first.distance_m:
+                return CollisionReport(
+                    last.safe, last.distance_m, last.pair, last.message,
+                    recovering=not last.safe,
+                )
+            return first
         if not last.safe:
             return last
         velocity = np.zeros(self.model.nv)
